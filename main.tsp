@@ -32,10 +32,11 @@ namespace rpp {
     interface EntityCollection<T> {
 
         // Check
-        @head op Check(entity: T) : T;
+        @head op Check(...T) : T;
 
-        // Create
-        @post op Create(entity: T) : T;
+        // Check
+        //@overload(Create) // this does not work as in https://typespec.io/docs/standard-library/built-in-decorators/
+        @post op Create(...T, @header Expect?: "100-continue") : T;
 
         // Delete
         @route("/{id}")
@@ -86,17 +87,17 @@ namespace rpp {
     model Domain {
         name: string;
         duration?: duration;
-        registrant: Registrant[];
-        authInfo: {
+        registrant?: string[];
+        authInfo?: {
             pw: string;
             hash: string;
         };
-        ns: {
+        ns?: {
             hostObj: HostInfo[];
             hostAttr: HostInfo[];
         };
-        contacts: ContactReference[];
-        dnsSEC : DnsSec[];
+        contacts?: ContactReference[];
+        dnsSEC? : DnsSec[];
       }
 
     model HostInfo {
@@ -120,7 +121,7 @@ namespace rpp {
     }
 
     model ContactReference {
-        value: Contact;
+        value: string;
         type: ContactType[];
     }
 
