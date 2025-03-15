@@ -6,28 +6,28 @@ using TypeSpec.Http;
 @service()
 namespace rpp {
 
-    @route("/")
-    @get op Hello() : HelloResponse;
+    //@route("/")
+    //@get op Hello() : HelloResponse;
 
-    @route("/contacts")
-    interface contacts extends EntityCollection<ContactReference> {
-    }
+    //@route("/contacts")
+    //interface contacts extends EntityCollection<ContactReference> {
+    //}
 
     @route("/domains")
     interface domains extends EntityCollection<Domain> {
     }
 
-    @route("/hosts")
-    interface hosts extends EntityCollection<Host> {
-    }
+    //@route("/hosts")
+    //interface hosts extends EntityCollection<Host> {
+    //}
 
-    @route("/messages")
-    interface Messages {
-        @get op PollRequest() : Message[];
+    //@route("/messages")
+    //interface Messages {
+    //    @get op PollRequest() : Message[];
 
-        @route("/{id}")
-        @delete op AckPoll(id: string) : Message;
-    }
+    //    @route("/{id}")
+    //    @delete op AckPoll(id: string) : Message;
+    //}
 
     interface EntityCollection<T> {
 
@@ -46,38 +46,38 @@ namespace rpp {
         @get op Get(id: string) : T;
 
         // Renew
-        @route("/{id}/renewals")
-        @post op Renew(id: string) : T[];
+        //@route("/{id}/renewals")
+        //@post op Renew(id: string) : T[];
 
         // Transfer Request
-        @route("/{id}/transfers")
-        @post op TransferRequest(id: string) : T[];
+        //@route("/{id}/transfers")
+        //@post op TransferRequest(id: string) : T[];
 
         // Transfer Query
-        @route("/{id}/transfers/latest")
-        @get op TransferQuery(id: string) : T;
+        //@route("/{id}/transfers/latest")
+        //@get op TransferQuery(id: string) : T;
 
         // Cancel
-        @route("/{id}/transfers/latest")
-        @delete op TransferCancel(id: string) : T;
+        //@route("/{id}/transfers/latest")
+        //@delete op TransferCancel(id: string) : T;
 
         // Approve
-        @route("/{id}/transfers/latest")
-        @patch op TransferApprove(id: string) : T;
+        //@route("/{id}/transfers/latest")
+        //@patch op TransferApprove(id: string) : T;
 
         // Reject
-        @route("/{id}/transfers/latest")
-        @post op TransferReject(id: string) : T;
+        //@route("/{id}/transfers/latest")
+        //@post op TransferReject(id: string) : T;
 
         // Update
         @route("/{id}")
         @patch op Update(id: string, entity: T) : T;
 
-        @route("/{id}/extension/{value}")
-        @get op GetExtension(id: string, value: string) : OkResponse;
+        //@route("/{id}/extension/{value}")
+        //@get op GetExtension(id: string, value: string) : OkResponse;
 
-        @route("/{id}/extension/{value}")
-        @patch op UpdateExtension(id: string, value: string, entity: {}) : OkResponse;
+        //@route("/{id}/extension/{value}")
+        //@patch op UpdateExtension(id: string, value: string, entity: {}) : OkResponse;
 
     }
 
