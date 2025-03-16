@@ -89,12 +89,12 @@ namespace rpp {
         duration?: duration;
         registrant?: string[];
         authInfo?: {
-            pw: string;
-            hash: string;
+            pw?: string;
+            hash?: string;
         };
         ns?: {
-            hostObj: HostInfo[];
-            hostAttr: HostInfo[];
+            hostObj?: HostInfo[];
+            hostAttr?: HostInfo[];
         };
         contacts?: ContactReference[];
         dnsSEC? : DnsSec[];
@@ -102,7 +102,7 @@ namespace rpp {
 
     model HostInfo {
         name: string;
-        addr: {
+        addr?: {
             "ipv4": string[];
             "ipv6": string[];
         };
@@ -110,7 +110,6 @@ namespace rpp {
 
     model Registrant {
         id: string;
-        name: string;
     }
 
     model DnsSec {
