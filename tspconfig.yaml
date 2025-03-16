@@ -2,9 +2,14 @@
 emit:
   # Emitter name
   - "@typespec/openapi3"
+  - "@typespec/json-schema"
 options:
   "@typespec/openapi3":
     emitter-output-dir: "{output-dir}/{emitter-name}"
+  "@typespec/json-schema":
+    emitter-output-dir: "{output-dir}/{emitter-name}"
+    file-type: "json"
+    int64-strategy: "number"
 
 # options:                                      # Emitter options
 #   <emitter-name>:

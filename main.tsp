@@ -1,7 +1,9 @@
 import "@typespec/http";
 import "@typespec/openapi3";
+import "@typespec/json-schema";
 
 using TypeSpec.Http;
+using TypeSpec.JsonSchema;
 
 @service()
 namespace rpp {
@@ -84,6 +86,7 @@ namespace rpp {
         @put op TransferReject(id: string) : T;
     }
 
+    @jsonSchema
     model Domain {
         name: string;
         duration?: duration;
