@@ -1,6 +1,11 @@
 # extends: ../tspconfig.yaml                    # Extend another config file
-emit:                                         # Emitter name
+emit:
+  # Emitter name
   - "@typespec/openapi3"
+options:
+  "@typespec/openapi3":
+    emitter-output-dir: "{output-dir}/{emitter-name}"
+
 # options:                                      # Emitter options
 #   <emitter-name>:
 #    "<option-name>": "<option-value>"
