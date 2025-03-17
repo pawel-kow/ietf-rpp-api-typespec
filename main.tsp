@@ -4,23 +4,83 @@ import "@typespec/json-schema";
 
 using TypeSpec.Http;
 using TypeSpec.JsonSchema;
+using TypeSpec.OpenAPI;
 
-@service()
+const domainExampleHostObj = #{
+    name: "example.com",
+    registrant: #["registrant-id"],
+    authInfo: #{
+        pw: "password"
+    },
+    ns: #{
+        hostObj: #[
+            #{
+                name: "ns1.example.net"
+            },
+            #{
+                name: "ns2.example.net"
+            }
+        ]
+    }
+};
+
+const domainExampleHostAttr = #{
+    name: "example.com",
+    registrant: #["registrant-id"],
+    authInfo: #{
+        pw: "password"
+    },
+    ns: #{
+        hostAttr: #[
+            #{
+                name: "ns1.example.net",
+                addr: #{
+                    ipv4: #["1.1.1.1"],
+                    ipv6: #["2001:db8::1"]
+                }
+            },
+            #{
+                name: "ns2.example.net",
+                addr: #{
+                    ipv4: #["1.1.1.1"]
+                }
+            }
+        ]
+    }
+};
+
+const domainExamplePeriods = #{
+    name: "example.com",
+    processes: #{
+        creation: #{
+            period: duration.fromISO("P2Y")
+        }
+    },
+    registrant: #["registrant-id"],
+    authInfo: #{
+        pw: "password"
+    }
+};
+
+@doc("RPP Testbed server")
+@server("https://localhost:8000", "Local RPP Testbed server")
+@service(#{title: "RPP Testbed", version: "1.0.0"})
 namespace rpp {
 
-    @route("/")
-    @get op Hello() : HelloResponse;
-
-    @route("/contacts")
-    interface contacts extends EntityCollection<ContactReference> {
+//    @route("/")
+//    @get op Hello() : HelloResponse;
+    @tag("Domains")
+    @route("/domains")
+    interface domains extends EntityCollection<Domain, Domain>, EntityCollectionTransferrable<DomainRenew, DomainRenew> {
     }
 
-    @route("/domains")
-    interface domains extends EntityCollection<Domain>, EntityCollectionTransferrable<Domain> {
+    @tag("Contacts")
+    @route("/contacts")
+    interface contacts extends EntityCollection<ContactReference, ContactReference> {
     }
 
     @route("/hosts")
-    interface hosts extends EntityCollection<Host> {
+    interface hosts extends EntityCollection<Host, Host> {
     }
 
     @route("/messages")
@@ -31,84 +91,111 @@ namespace rpp {
         @delete op AckPoll(id: string) : Message;
     }
 
-    interface EntityCollection<T> {
+    interface EntityCollection<InputT, OutputT> {
 
         // Check
-        @head op Check(...T) : T;
+        @head op Check(...InputT) : OutputT;
 
         // Check
         //@overload(Create) // this does not work as in https://typespec.io/docs/standard-library/built-in-decorators/
-        @post op Create(...T, @header Expect?: "100-continue") : T;
+        @post op Create(...InputT, @header Expect?: "100-continue") : OutputT;
 
         // Delete
         @route("/{id}")
-        @delete op Delete(id: string) : T;
+        @delete op Delete(id: string) : OutputT;
 
         // Info
         @route("/{id}")
-        @get op Get(id: string) : T;
+        @get op Get(id: string) : OutputT;
 
         // Renew
         @route("/{id}/renewals")
-        @post op Renew(id: string) : T[];
+        @post op Renew(id: string) : OutputT;
 
         // Update
         @route("/{id}")
-        @patch op Update(id: string, entity: T) : T;
-
-        @route("/{id}/extension/{value}")
-        @get op GetExtension(id: string, value: string) : OkResponse;
-
-        @route("/{id}/extension/{value}")
-        @patch op UpdateExtension(id: string, value: string, entity: {}) : OkResponse;
-
+        @patch op Update(...InputT, id: string) : OutputT;
     }
 
-    interface EntityCollectionTransferrable<T> {
+    interface EntityCollectionTransferrable<InputT, OutputT> {
         // Transfer Request
         @route("/{id}/transfer")
-        @put op TransferRequest(id: string) : T[];
+        @put op TransferRequest(...InputT, id: string) : OutputT;
 
         // Transfer Query
         @route("/{id}/transfer")
-        @get op TransferQuery(id: string) : T;
+        @get op TransferQuery(id: string) : OutputT;
 
         // Cancel
         @route("/{id}/transfer")
-        @delete op TransferCancel(id: string) : T;
+        @delete op TransferCancel(id: string) : OutputT;
 
         // Approve
         @route("/{id}/transfer/approval")
-        @put op TransferApprove(id: string) : T;
+        @put op TransferApprove(id: string) : OutputT;
 
         // Reject
         @route("/{id}/transfer/rejection")
-        @put op TransferReject(id: string) : T;
+        @put op TransferReject(id: string) : OutputT;
     }
 
     @jsonSchema
+    @example(domainExampleHostObj, #{ title: "Host object domain registration", description: "Register a domain with two nameservers" })
+    @example(domainExampleHostAttr, #{ title: "Host attribute domain registration", description: "Register a domain with two nameservers" })
+    @example(domainExamplePeriods, #{ title: "Periods domain registration", description: "Register a domain with a 2 years period" })
     model Domain {
         name: string;
-        duration?: duration;
+        processes?: {
+            creation?: DomainCreation;
+            renewal?: DomainRenewal;
+        };
         registrant?: string[];
         authInfo?: {
             pw?: string;
             hash?: string;
         };
-        ns?: {
-            hostObj?: HostInfo[];
-            hostAttr?: HostInfo[];
-        };
+        ns?: NS;
         contacts?: ContactReference[];
         dnsSEC? : DnsSec[];
       }
 
-    model HostInfo {
+      model DomainCreation {
+        period: duration;
+      }
+
+      model DomainRenewal {
+        period: duration;
+      }
+
+      @jsonSchema
+      model DomainRenew {
+        duration?: duration;
+      }
+  
+    model HostInfoObj {
         name: string;
+    }
+
+    model HostInfoAttr extends HostInfoObj {
         addr?: {
-            "ipv4": string[];
-            "ipv6": string[];
+            "ipv4"?: string[];
+            "ipv6"?: string[];
         };
+    }
+
+    model NSHostObj {
+        hostObj: HostInfoObj[];
+    }
+
+    model NSHostAttr {
+        hostAttr: HostInfoAttr[];
+    }
+
+    @TypeSpec.JsonSchema.oneOf
+    @TypeSpec.OpenAPI.oneOf
+    union NS {
+        NSHostObj;
+        NSHostAttr;
     }
 
     model Registrant {
@@ -144,12 +231,8 @@ namespace rpp {
 
     }
 
-    model Host {
-        id: string;
-        name: string;
-        domain: Domain;
+    model Host extends HostInfoAttr {
     }
-
 
     model HelloResponse {
         svID: string;
