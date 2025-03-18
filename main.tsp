@@ -6,66 +6,76 @@ using TypeSpec.Http;
 using TypeSpec.JsonSchema;
 using TypeSpec.OpenAPI;
 
-const domainExampleHostObj = #{
-    name: "example.com",
-    registrant: #["registrant-id"],
-    authInfo: #{
-        pw: "password"
-    },
-    ns: #{
-        hostObj: #[
-            #{
-                name: "ns1.example.net"
-            },
-            #{
-                name: "ns2.example.net"
-            }
-        ]
-    }
-};
-
-const domainExampleHostAttr = #{
-    name: "example.com",
-    registrant: #["registrant-id"],
-    authInfo: #{
-        pw: "password"
-    },
-    ns: #{
-        hostAttr: #[
-            #{
-                name: "ns1.example.net",
-                addr: #{
-                    ipv4: #["1.1.1.1"],
-                    ipv6: #["2001:db8::1"]
-                }
-            },
-            #{
-                name: "ns2.example.net",
-                addr: #{
-                    ipv4: #["1.1.1.1"]
-                }
-            }
-        ]
-    }
-};
-
-const domainExamplePeriods = #{
-    name: "example.com",
-    processes: #{
-        creation: #{
-            period: duration.fromISO("P2Y")
-        }
-    },
-    registrant: #["registrant-id"],
-    authInfo: #{
-        pw: "password"
-    }
-};
-
 @doc("RPP Testbed server")
 @server("https://localhost:8000", "Local RPP Testbed server")
 @service(#{title: "RPP Testbed", version: "1.0.0"})
 namespace rpp {
+
+    const domainExampleHostObj = #{
+        name: "example.com",
+        contacts: #[#{
+            value: "registrant-id",
+            type: #[ContactType.registrant, ContactType.admin]
+        }],
+        authInfo: #{
+            pw: "password"
+        },
+        ns: #{
+            hostObj: #[
+                #{
+                    name: "ns1.example.net"
+                },
+                #{
+                    name: "ns2.example.net"
+                }
+            ]
+        }
+    };
+    
+    const domainExampleHostAttr = #{
+        name: "example.com",
+        contacts: #[#{
+            value: "registrant-id",
+            type: #[ContactType.registrant]
+        }],
+        authInfo: #{
+            pw: "password"
+        },
+        ns: #{
+            hostAttr: #[
+                #{
+                    name: "ns1.example.net",
+                    addr: #{
+                        ipv4: #["1.1.1.1"],
+                        ipv6: #["2001:db8::1"]
+                    }
+                },
+                #{
+                    name: "ns2.example.net",
+                    addr: #{
+                        ipv4: #["1.1.1.1"]
+                    }
+                }
+            ]
+        }
+    };
+    
+    const domainExamplePeriods = #{
+        name: "example.com",
+        processes: #{
+            creation: #{
+                period: duration.fromISO("P2Y")
+            }
+        },
+        authInfo: #{
+            pw: "password"
+        },
+        contacts: #[#{
+            value: "registrant-id",
+            type: #[ContactType.registrant]
+        }],
+    };
+    
 
 //    @route("/")
 //    @get op Hello() : HelloResponse;
@@ -149,7 +159,6 @@ namespace rpp {
             creation?: DomainCreation;
             renewal?: DomainRenewal;
         };
-        registrant?: string[];
         authInfo?: {
             pw?: string;
             hash?: string;
