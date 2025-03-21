@@ -4,10 +4,13 @@ emit:
   - "@typespec/openapi3"
   - "@typespec/json-schema"
 options:
+
   "@typespec/openapi3":
     emitter-output-dir: "{output-dir}/{emitter-name}"
+#    emitter-output-dir: "{project-root}/../rpp_server_python_connexion/src/"
   "@typespec/json-schema":
     emitter-output-dir: "{output-dir}/{emitter-name}"
+#    emitter-output-dir: "{project-root}/../rpp_server_python_connexion/src/rpp_schema_validator/schemas/"
     file-type: "json"
     int64-strategy: "number"
 
