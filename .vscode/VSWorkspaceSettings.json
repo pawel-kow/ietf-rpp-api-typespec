@@ -1,0 +1,3 @@
+{
+    "typespec.tsp-server.path": "${workspaceFolder}/ietf-rpp-api/typespec/node_modules/@typespec/compiler"
+}
