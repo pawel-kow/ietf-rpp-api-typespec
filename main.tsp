@@ -81,7 +81,9 @@ namespace rpp {
 //    @get op Hello() : HelloResponse;
     @tag("Domains")
     @route("/domains")
-    interface domains extends EntityCollection<Domain, Domain>, EntityCollectionTransferrable<DomainRenew, DomainRenew> {
+    interface domains extends EntityCollection<Domain, Domain>, EntityCollectionTransferrable<DomainTransfer, DomainTransfer>,
+    EntityCollectionRenewable<DomainRenewal, DomainRenewal>,
+    EntityCollectionDeleteable<Domain, DomainDeletion> {
     }
 
     @tag("Contacts")
@@ -89,10 +91,12 @@ namespace rpp {
     interface contacts extends EntityCollection<ContactReference, ContactReference> {
     }
 
+    @tag("Hosts")
     @route("/hosts")
     interface hosts extends EntityCollection<Host, Host> {
     }
 
+    @tag("Poll messages")
     @route("/messages")
     interface Messages {
         @get op PollRequest() : Message[];
@@ -104,49 +108,119 @@ namespace rpp {
     interface EntityCollection<InputT, OutputT> {
 
         // Check
-        @head op Check(...InputT) : OutputT;
+        @head op Check(...RequestHeaders, ...InputT) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
 
         // Check
         //@overload(Create) // this does not work as in https://typespec.io/docs/standard-library/built-in-decorators/
-        @post op Create(...InputT, @header Expect?: "100-continue") : OutputT;
-
-        // Delete
-        @route("/{id}")
-        @delete op Delete(id: string) : OutputT;
+        @post op Create(...RequestHeaders, ...InputT, @header Expect?: "100-continue") : {...ResponseHeaders, ...OutputT} | ErrorResponse400_409_500;
 
         // Info
         @route("/{id}")
-        @get op Get(id: string) : OutputT;
-
-        // Renew
-        @route("/{id}/renewals")
-        @post op Renew(id: string) : OutputT;
+        @get op Get(...RequestHeaders, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
 
         // Update
         @route("/{id}")
-        @patch op Update(...InputT, id: string) : OutputT;
+        @patch op Update(...RequestHeaders, ...InputT, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
     }
 
     interface EntityCollectionTransferrable<InputT, OutputT> {
         // Transfer Request
-        @route("/{id}/transfer")
+        @route("/{id}/processes/transfer")
         @put op TransferRequest(...InputT, id: string) : OutputT;
 
         // Transfer Query
-        @route("/{id}/transfer")
+        @route("/{id}/processes/transfer")
         @get op TransferQuery(id: string) : OutputT;
 
         // Cancel
-        @route("/{id}/transfer")
+        @route("/{id}/processes/transfer")
         @delete op TransferCancel(id: string) : OutputT;
 
         // Approve
-        @route("/{id}/transfer/approval")
+        @route("/{id}/processes/transfer/approval")
         @put op TransferApprove(id: string) : OutputT;
 
         // Reject
-        @route("/{id}/transfer/rejection")
+        @route("/{id}/processes/transfer/rejection")
         @put op TransferReject(id: string) : OutputT;
+    }
+
+    interface EntityCollectionRenewable<InputT, OutputT> {
+        // Transfer Request
+        @route("/{id}/processes/renewal")
+        @put op RenewalRequest(...InputT, id: string) : OutputT;
+
+        // Transfer Query
+        @route("/{id}/processes/renewal")
+        @get op RenewalQuery(id: string) : OutputT;
+
+        // Cancel
+        @route("/{id}/processes/renewal")
+        @delete op RenewalCancel(id: string) : OutputT;
+    }
+
+    interface EntityCollectionDeleteable<ItemOutputT, ProcessOutputT> {
+        // Delete
+        @route("/{id}")
+        @delete op Delete(id: string) : ItemOutputT;
+
+        // Delete Query
+        @route("/{id}/processes/deletion")
+        @get op DeletionQuery(id: string) : ProcessOutputT;
+    }
+
+    model RequestHeaders {
+        @header "RPP-cltrid"?: string;
+    }
+
+    model ResponseHeaders {
+        @header "RPP-cltrid"?: string;
+        @header "RPP-svtrid"?: string;
+    }
+
+    @jsonSchema
+//    @mediaTypeHint("application/problem+json") #bug in typespec
+    @mediaTypeHint("application/problem-json")
+    model ErrorResponse {
+        title: string;
+        detail: string;
+        type: string;
+        status: string;
+        instance: string;
+    }
+
+    model ErrorResponse400 extends ErrorResponse {
+        @statusCode _: 400;
+        ...ResponseHeaders;
+    }
+
+    model ErrorResponse409 extends ErrorResponse {
+        @statusCode _: 409;
+        ...ResponseHeaders;
+    }
+    model ErrorResponse404 extends ErrorResponse {
+        @statusCode _: 404;
+        ...ResponseHeaders;
+    }
+
+    model ErrorResponse500 extends ErrorResponse {
+        @statusCode _: 500;
+        ...ResponseHeaders;
+    }
+
+    alias ErrorResponse400_404_500 = ErrorResponse400 | ErrorResponse404 | ErrorResponse500;
+
+    alias ErrorResponse400_409_500 = ErrorResponse400 | ErrorResponse409 | ErrorResponse500;
+
+    alias ErrorResponse400_404_409_500 = ErrorResponse400 | ErrorResponse404 | ErrorResponse409 | ErrorResponse500;
+    model DomainResponse {
+        ...Domain;
+        ...ResponseHeaders;
+    }
+
+    model DomainRequest {
+        ...Domain;
+        ...RequestHeaders;
     }
 
     @jsonSchema
@@ -158,6 +232,7 @@ namespace rpp {
         processes?: {
             creation?: DomainCreation;
             renewal?: DomainRenewal;
+            transfer?: DomainTransfer;
         };
         authInfo?: {
             pw?: string;
@@ -169,18 +244,23 @@ namespace rpp {
       }
 
       model DomainCreation {
-        period: duration;
+        period?: duration;
       }
 
       model DomainRenewal {
-        period: duration;
+        period?: duration;
       }
 
       @jsonSchema
-      model DomainRenew {
-        duration?: duration;
+      model DomainTransfer {
+        period?: duration;
       }
-  
+
+      @jsonSchema
+      model DomainDeletion {
+        purgeDate?: utcDateTime
+      }
+
     model HostInfoObj {
         name: string;
     }
