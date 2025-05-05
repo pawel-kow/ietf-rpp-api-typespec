@@ -229,20 +229,26 @@ namespace rpp {
     @example(domainExamplePeriods, #{ title: "Periods domain registration", description: "Register a domain with a 2 years period" })
     model Domain {
         name: string;
+        @visibility(Lifecycle.Read, Lifecycle.Query) status?: string[];
         processes?: {
             creation?: DomainCreation;
             renewal?: DomainRenewal;
             transfer?: DomainTransfer;
         };
-        authInfo?: {
+        authInfo: {
             pw?: string;
             hash?: string;
         };
         ns?: NS;
         contacts?: ContactReference[];
         dnsSEC? : DnsSec[];
-      }
-
+        @visibility(Lifecycle.Read, Lifecycle.Query) crDate?: string;
+        @visibility(Lifecycle.Read, Lifecycle.Query) exDate?: string;
+        @visibility(Lifecycle.Read, Lifecycle.Query) upDate?: string;
+        @visibility(Lifecycle.Read, Lifecycle.Query) trDate?: string;
+        @visibility(Lifecycle.Read, Lifecycle.Query) clID?: string;
+        @visibility(Lifecycle.Read, Lifecycle.Query) crID?: string;
+    }
       model DomainCreation {
         period?: duration;
       }
