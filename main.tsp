@@ -81,6 +81,7 @@ namespace rpp {
 //    @get op Hello() : HelloResponse;
     @tag("Domains")
     @route("/domains")
+    @useAuth(BasicAuth)
     interface domains extends EntityCollection<Domain, Domain>, EntityCollectionTransferrable<DomainTransfer, DomainTransfer>,
     EntityCollectionRenewable<DomainRenewal, DomainRenewal>,
     EntityCollectionDeleteable<Domain, DomainDeletion> {
@@ -88,16 +89,19 @@ namespace rpp {
 
     @tag("Contacts")
     @route("/contacts")
+    @useAuth(BasicAuth)
     interface contacts extends EntityCollection<ContactReference, ContactReference> {
     }
 
     @tag("Hosts")
     @route("/hosts")
+    @useAuth(BasicAuth)
     interface hosts extends EntityCollection<Host, Host> {
     }
 
     @tag("Poll messages")
     @route("/messages")
+    @useAuth(BasicAuth)
     interface Messages {
         @get op PollRequest() : Message[];
 
