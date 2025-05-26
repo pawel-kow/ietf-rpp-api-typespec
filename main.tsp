@@ -111,10 +111,10 @@ namespace rpp {
 
     interface EntityCollection<InputT, OutputT> {
 
-        // Check
-        @head op Check(...RequestHeaders, ...InputT) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
+        // Check as HEAD - right now problematic
+        //@head op Check(...RequestHeaders, ...InputT) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
 
-        // Check
+        // One and the same operation for Create and Check with Expect header
         //@overload(Create) // this does not work as in https://typespec.io/docs/standard-library/built-in-decorators/
         @post op Create(...RequestHeaders, ...InputT, @header Expect?: "100-continue") : {...ResponseHeaders, ...OutputT} | ErrorResponse400_409_500;
 
