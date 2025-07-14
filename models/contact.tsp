@@ -6,9 +6,9 @@ namespace rpp.contact {
     model Contact {
         id: string;
         name?: string;
-        email?: string;
-        phone?: string;
-        fax?: string;
+        email?: string[];
+        phone?: string[];
+        fax?: string[];
         address?: {
             street: string[];
             city: string;
