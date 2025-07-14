@@ -76,9 +76,9 @@ namespace rpp {
         }],
     };
     
-
+    @tag("Discovery")
     @route("/hello")
-    @get op Hello() : HelloResponse;
+    @get op Hello(...RequestHeaders) : {...ResponseHeaders, ...HelloResponse} | ErrorResponse400_404_500;
 
     @tag("Domains")
     @route("/domains")
@@ -104,10 +104,10 @@ namespace rpp {
     @route("/messages")
     @useAuth(BasicAuth)
     interface Messages {
-        @get op PollRequest() : Message[];
+        @get op PollRequest(...RequestHeaders) : {...ResponseHeaders, ...Message} | ErrorResponse400_409_500;
 
         @route("/{id}")
-        @delete op AckPoll(id: string) : Message;
+        @delete op AckPoll(id: string, ...RequestHeaders): {...ResponseHeaders} | ErrorResponse400_404_500;
     }
 
     interface EntityCollection<InputT, OutputT> {
