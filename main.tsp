@@ -78,7 +78,7 @@ namespace rpp {
     
     @tag("Discovery")
     @route("/hello")
-    @get op Hello(...RequestHeaders) : {...ResponseHeaders, ...HelloResponse} | ErrorResponse400_404_500;
+    @get op Hello(...RequestHeaders) : {...ResponseHeaders, ...HelloResponse} | ErrorResponse400_401_500;
 
     @tag("Domains")
     @route("/domains")
@@ -104,28 +104,28 @@ namespace rpp {
     @route("/messages")
     @useAuth(BasicAuth)
     interface Messages {
-        @get op PollRequest(...RequestHeaders) : {...ResponseHeaders, ...Message} | ErrorResponse400_409_500;
+        @get op PollRequest(...RequestHeaders) : {...ResponseHeaders, ...Message} | ErrorResponse400_401_409_500;
 
         @route("/{id}")
-        @delete op AckPoll(id: string, ...RequestHeaders): {...ResponseHeaders} | ErrorResponse400_404_500;
+        @delete op AckPoll(id: string, ...RequestHeaders): {...ResponseHeaders} | ErrorResponse400_401_404_500;
     }
 
     interface EntityCollection<InputT, OutputT> {
 
         // Check as HEAD - right now problematic
-        //@head op Check(...RequestHeaders, ...InputT) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
+        //@head op Check(...RequestHeaders, ...InputT) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
 
         // One and the same operation for Create and Check with Expect header
         //@overload(Create) // this does not work as in https://typespec.io/docs/standard-library/built-in-decorators/
-        @post op Create(...RequestHeaders, ...InputT, @header Expect?: "100-continue") : {...ResponseHeaders, ...OutputT} | ErrorResponse400_409_500;
+        @post op Create(...RequestHeaders, ...InputT, @header Expect?: "100-continue") : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_409_500;
 
         // Info
         @route("/{id}")
-        @get op Get(...RequestHeaders, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
+        @get op Get(...RequestHeaders, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
 
         // Update
         //@route("/{id}")
-        //@patch op Update(...RequestHeaders, ...InputT, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
+        //@patch op Update(...RequestHeaders, ...InputT, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
     }
 
     interface EntityCollectionTransferrable<InputT, OutputT> {
@@ -199,10 +199,16 @@ namespace rpp {
         ...ResponseHeaders;
     }
 
+    model ErrorResponse401 extends ErrorResponse {
+        @statusCode _: 401;
+    }
+
+
     model ErrorResponse409 extends ErrorResponse {
         @statusCode _: 409;
         ...ResponseHeaders;
     }
+
     model ErrorResponse404 extends ErrorResponse {
         @statusCode _: 404;
         ...ResponseHeaders;
@@ -213,11 +219,14 @@ namespace rpp {
         ...ResponseHeaders;
     }
 
-    alias ErrorResponse400_404_500 = ErrorResponse400 | ErrorResponse404 | ErrorResponse500;
+    alias ErrorResponse400_401_404_500 = ErrorResponse400 | ErrorResponse401 | ErrorResponse404 | ErrorResponse500;
 
-    alias ErrorResponse400_409_500 = ErrorResponse400 | ErrorResponse409 | ErrorResponse500;
+    alias ErrorResponse400_401_409_500 = ErrorResponse400 | ErrorResponse401 | ErrorResponse409 | ErrorResponse500;
 
-    alias ErrorResponse400_404_409_500 = ErrorResponse400 | ErrorResponse404 | ErrorResponse409 | ErrorResponse500;
+    alias ErrorResponse400_401_500 = ErrorResponse400 | ErrorResponse401 | ErrorResponse500;
+
+    alias ErrorResponse400_401_404_409_500 = ErrorResponse400 | ErrorResponse401 | ErrorResponse404 | ErrorResponse409 | ErrorResponse500;
+
     model DomainResponse {
         ...Domain;
         ...ResponseHeaders;
