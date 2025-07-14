@@ -1,81 +1,31 @@
 import "@typespec/http";
 import "@typespec/openapi3";
+import "@typespec/openapi";
 import "@typespec/json-schema";
+import "./models/domain.tsp";
+import "./models/contact.tsp";
+import "./models/message.tsp";
+import "./models/headers.tsp";
+import "./models/host.tsp";
+import "./models/errors.tsp";
 
 using TypeSpec.Http;
-using TypeSpec.JsonSchema;
 using TypeSpec.OpenAPI;
+using rpp.headers;
+using rpp.errors;
 
 @doc("RPP Testbed server")
 @server("https://localhost:8000", "Local RPP Testbed server")
-@service(#{title: "RPP Testbed", version: "1.0.0"})
+@info(#{
+    title: "RPP Testbed",
+    version: "0.0.1-dev",
+    contact: #{
+        name: "RPP WG",
+        email: "rpp@ietf.org"
+    }
+})
+@service
 namespace rpp {
-
-    const domainExampleHostObj = #{
-        name: "example.com",
-        contacts: #[#{
-            value: "registrant-id",
-            type: #[ContactType.registrant, ContactType.admin]
-        }],
-        authInfo: #{
-            pw: "password"
-        },
-        ns: #{
-            hostObj: #[
-                #{
-                    name: "ns1.example.net"
-                },
-                #{
-                    name: "ns2.example.net"
-                }
-            ]
-        }
-    };
-    
-    const domainExampleHostAttr = #{
-        name: "example.com",
-        contacts: #[#{
-            value: "registrant-id",
-            type: #[ContactType.registrant]
-        }],
-        authInfo: #{
-            pw: "password"
-        },
-        ns: #{
-            hostAttr: #[
-                #{
-                    name: "ns1.example.net",
-                    addr: #{
-                        ipv4: #["1.1.1.1"],
-                        ipv6: #["2001:db8::1"]
-                    }
-                },
-                #{
-                    name: "ns2.example.net",
-                    addr: #{
-                        ipv4: #["1.1.1.1"]
-                    }
-                }
-            ]
-        }
-    };
-    
-    const domainExamplePeriods = #{
-        name: "example.com",
-        processes: #{
-            creation: #{
-                period: duration.fromISO("P2Y")
-            }
-        },
-        authInfo: #{
-            pw: "password"
-        },
-        contacts: #[#{
-            value: "registrant-id",
-            type: #[ContactType.registrant]
-        }],
-    };
-    
     @tag("Discovery")
     @route("/hello")
     @get op Hello(...RequestHeaders) : {...ResponseHeaders, ...HelloResponse} | ErrorResponse400_401_500;
@@ -83,28 +33,28 @@ namespace rpp {
     @tag("Domains")
     @route("/domains")
     @useAuth(BasicAuth)
-    interface domains extends EntityCollection<Domain, Domain>, EntityCollectionTransferrable<DomainTransfer, DomainTransfer>,
-    EntityCollectionRenewable<DomainRenewal, DomainRenewal>,
-    EntityCollectionDeleteable<Domain, DomainDeletion> {
+    interface domains extends EntityCollection<rpp.domain.Domain, rpp.domain.Domain>, EntityCollectionTransferrable<rpp.domain.DomainTransfer, rpp.domain.DomainTransfer>,
+    EntityCollectionRenewable<rpp.domain.DomainRenewal, rpp.domain.DomainRenewal>,
+    EntityCollectionDeleteable<rpp.domain.Domain, rpp.domain.DomainDeletion> {
     }
 
     @tag("Contacts")
     @route("/contacts")
     @useAuth(BasicAuth)
-    interface contacts extends EntityCollection<ContactReference, ContactReference> {
+    interface contacts extends EntityCollection<rpp.contact.Contact, rpp.contact.Contact> {
     }
 
     @tag("Hosts")
     @route("/hosts")
     @useAuth(BasicAuth)
-    interface hosts extends EntityCollection<Host, Host> {
+    interface hosts extends EntityCollection<rpp.host.Host, rpp.host.Host> {
     }
 
     @tag("Poll messages")
     @route("/messages")
     @useAuth(BasicAuth)
     interface Messages {
-        @get op PollRequest(...RequestHeaders) : {...ResponseHeaders, ...Message} | ErrorResponse400_401_409_500;
+        @get op PollRequest(...RequestHeaders) : {...ResponseHeaders, ...rpp.message.Message} | ErrorResponse400_401_409_500;
 
         @route("/{id}")
         @delete op AckPoll(id: string, ...RequestHeaders): {...ResponseHeaders} | ErrorResponse400_401_404_500;
@@ -172,175 +122,6 @@ namespace rpp {
         // Delete Query
         @route("/{id}/processes/deletion")
         @get op DeletionQuery(id: string) : ProcessOutputT;
-    }
-
-    model RequestHeaders {
-        @header "RPP-cltrid"?: string;
-    }
-
-    model ResponseHeaders {
-        @header "RPP-cltrid"?: string;
-        @header "RPP-svtrid"?: string;
-    }
-
-    @jsonSchema
-//    @mediaTypeHint("application/problem+json") #bug in typespec
-    @mediaTypeHint("application/problem-json")
-    model ErrorResponse {
-        title: string;
-        detail: string;
-        type: string;
-        status: string;
-        instance: string;
-    }
-
-    model ErrorResponse400 extends ErrorResponse {
-        @statusCode _: 400;
-        ...ResponseHeaders;
-    }
-
-    model ErrorResponse401 extends ErrorResponse {
-        @statusCode _: 401;
-    }
-
-
-    model ErrorResponse409 extends ErrorResponse {
-        @statusCode _: 409;
-        ...ResponseHeaders;
-    }
-
-    model ErrorResponse404 extends ErrorResponse {
-        @statusCode _: 404;
-        ...ResponseHeaders;
-    }
-
-    model ErrorResponse500 extends ErrorResponse {
-        @statusCode _: 500;
-        ...ResponseHeaders;
-    }
-
-    alias ErrorResponse400_401_404_500 = ErrorResponse400 | ErrorResponse401 | ErrorResponse404 | ErrorResponse500;
-
-    alias ErrorResponse400_401_409_500 = ErrorResponse400 | ErrorResponse401 | ErrorResponse409 | ErrorResponse500;
-
-    alias ErrorResponse400_401_500 = ErrorResponse400 | ErrorResponse401 | ErrorResponse500;
-
-    alias ErrorResponse400_401_404_409_500 = ErrorResponse400 | ErrorResponse401 | ErrorResponse404 | ErrorResponse409 | ErrorResponse500;
-
-    model DomainResponse {
-        ...Domain;
-        ...ResponseHeaders;
-    }
-
-    model DomainRequest {
-        ...Domain;
-        ...RequestHeaders;
-    }
-
-    @jsonSchema
-    @example(domainExampleHostObj, #{ title: "Host object domain registration", description: "Register a domain with two nameservers" })
-    @example(domainExampleHostAttr, #{ title: "Host attribute domain registration", description: "Register a domain with two nameservers" })
-    @example(domainExamplePeriods, #{ title: "Periods domain registration", description: "Register a domain with a 2 years period" })
-    model Domain {
-        name: string;
-        @visibility(Lifecycle.Read, Lifecycle.Query) status?: string[];
-        processes?: {
-            creation?: DomainCreation;
-            renewal?: DomainRenewal;
-            transfer?: DomainTransfer;
-        };
-        authInfo: {
-            pw?: string;
-            hash?: string;
-        };
-        ns?: NS;
-        contacts?: ContactReference[];
-        dnsSEC? : DnsSec[];
-        @visibility(Lifecycle.Read, Lifecycle.Query) crDate?: string;
-        @visibility(Lifecycle.Read, Lifecycle.Query) exDate?: string;
-        @visibility(Lifecycle.Read, Lifecycle.Query) upDate?: string;
-        @visibility(Lifecycle.Read, Lifecycle.Query) trDate?: string;
-        @visibility(Lifecycle.Read, Lifecycle.Query) clID?: string;
-        @visibility(Lifecycle.Read, Lifecycle.Query) crID?: string;
-    }
-      model DomainCreation {
-        period?: duration;
-      }
-
-      model DomainRenewal {
-        period?: duration;
-      }
-
-      @jsonSchema
-      model DomainTransfer {
-        period?: duration;
-      }
-
-      @jsonSchema
-      model DomainDeletion {
-        purgeDate?: utcDateTime
-      }
-
-    model HostInfoObj {
-        name: string;
-    }
-
-    model HostInfoAttr extends HostInfoObj {
-        addr?: {
-            "ipv4"?: string[];
-            "ipv6"?: string[];
-        };
-    }
-
-    model NSHostObj {
-        hostObj: HostInfoObj[];
-    }
-
-    model NSHostAttr {
-        hostAttr: HostInfoAttr[];
-    }
-
-    @TypeSpec.JsonSchema.oneOf
-    @TypeSpec.OpenAPI.oneOf
-    union NS {
-        NSHostObj;
-        NSHostAttr;
-    }
-
-    model Registrant {
-        id: string;
-    }
-
-    model DnsSec {
-        keyTag: string;
-        algorithm: string;
-        digestType: string;
-        digest: string;
-    }
-
-    model ContactReference {
-        value: string;
-        type: ContactType[];
-    }
-
-    model Contact {
-        id: string;
-        name: string;
-        address: string;
-    }
-
-    enum ContactType {
-        registrant,
-        admin,
-        tech,
-        billing
-    }
-
-    model Message {
-
-    }
-
-    model Host extends HostInfoAttr {
     }
 
     model HelloResponse {
