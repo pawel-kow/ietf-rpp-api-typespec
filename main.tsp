@@ -77,8 +77,9 @@ namespace rpp {
     };
     
 
-//    @route("/")
-//    @get op Hello() : HelloResponse;
+    @route("/hello")
+    @get op Hello() : HelloResponse;
+
     @tag("Domains")
     @route("/domains")
     @useAuth(BasicAuth)
@@ -123,8 +124,8 @@ namespace rpp {
         @get op Get(...RequestHeaders, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
 
         // Update
-        @route("/{id}")
-        @patch op Update(...RequestHeaders, ...InputT, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
+        //@route("/{id}")
+        //@patch op Update(...RequestHeaders, ...InputT, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_404_500;
     }
 
     interface EntityCollectionTransferrable<InputT, OutputT> {
