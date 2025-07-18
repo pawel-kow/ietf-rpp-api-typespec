@@ -134,10 +134,6 @@ namespace rpp.domain {
             renewal?: DomainRenewal;
             transfer?: DomainTransfer;
         };
-        authInfo: {
-            pw?: string;
-            hash?: string;
-        };
         ns?: NS;
         contacts?: ContactReference[];
         dnsSEC? : DnsSec[];
