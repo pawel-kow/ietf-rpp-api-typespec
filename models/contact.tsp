@@ -10,8 +10,8 @@ namespace rpp.contact {
         phone?: string[];
         fax?: string[];
         address?: {
-            street: string[];
-            city: string;
+            street?: string[];
+            city?: string;
             stateProvince?: string;
             postalCode?: string;
             country: string;
