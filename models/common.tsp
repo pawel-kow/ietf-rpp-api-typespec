@@ -1,6 +1,10 @@
 
 namespace rpp.common {
     model ProvisioningObj {
+        authInfo: {
+            pw?: string;
+            hash?: string;
+        };
         @visibility(Lifecycle.Read, Lifecycle.Query) status?: string[];
         @visibility(Lifecycle.Read, Lifecycle.Query) crDate?: string;
         @visibility(Lifecycle.Read, Lifecycle.Query) exDate?: string;
