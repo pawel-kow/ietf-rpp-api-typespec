@@ -41,7 +41,7 @@ namespace rpp {
     @tag("Contacts")
     @route("/contacts")
     @useAuth(BasicAuth)
-    interface contacts extends EntityCollection<rpp.contact.Contact, rpp.contact.Contact> {
+    interface contacts extends EntityCollection<rpp.contact.Contact, rpp.contact.Contact>, EntityCollectionDeleteable<rpp.contact.Contact, rpp.contact.ContactDeletion> {
     }
 
     @tag("Hosts")
@@ -54,10 +54,10 @@ namespace rpp {
     @route("/messages")
     @useAuth(BasicAuth)
     interface Messages {
-        @get op PollRequest(...RequestHeaders) : {...ResponseHeaders, ...rpp.message.Message} | ErrorResponse400_401_409_500;
+        @get op PollRequest(...RequestHeaders) : {...ResponseHeaders, ...rpp.message.PollQueueMessage} | ErrorResponse400_401_409_500;
 
         @route("/{id}")
-        @delete op AckPoll(id: string, ...RequestHeaders): {...ResponseHeaders} | ErrorResponse400_401_404_500;
+        @delete op AckPoll(id: string, ...RequestHeaders): {...ResponseHeaders, ...rpp.message.PollMessageAckResponse} | ErrorResponse400_401_404_500;
     }
 
     interface EntityCollection<InputT, OutputT> {
@@ -101,27 +101,15 @@ namespace rpp {
     }
 
     interface EntityCollectionRenewable<InputT, OutputT> {
-        // Transfer Request
+        // Renew Request
         @route("/{id}/processes/renewal")
         @put op RenewalRequest(...InputT, id: string) : OutputT;
-
-        // Transfer Query
-        @route("/{id}/processes/renewal")
-        @get op RenewalQuery(id: string) : OutputT;
-
-        // Cancel
-        @route("/{id}/processes/renewal")
-        @delete op RenewalCancel(id: string) : OutputT;
     }
 
     interface EntityCollectionDeleteable<ItemOutputT, ProcessOutputT> {
         // Delete
         @route("/{id}")
         @delete op Delete(id: string) : ItemOutputT;
-
-        // Delete Query
-        @route("/{id}/processes/deletion")
-        @get op DeletionQuery(id: string) : ProcessOutputT;
     }
 
     model HelloResponse {

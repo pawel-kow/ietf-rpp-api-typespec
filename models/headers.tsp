@@ -10,5 +10,7 @@ namespace rpp.headers {
     model ResponseHeaders {
         @header "RPP-cltrid"?: string;
         @header "RPP-svtrid"?: string;
+        @header "RPP-code": string;
+        @header "RPP-code-text": string;
     }
 }

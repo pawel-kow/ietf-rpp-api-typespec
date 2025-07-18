@@ -25,4 +25,8 @@ namespace rpp.contact {
         };
         ...rpp.common.ProvisioningObj;
     }
+
+    @jsonSchema
+    model ContactDeletion {
+    }
 }
