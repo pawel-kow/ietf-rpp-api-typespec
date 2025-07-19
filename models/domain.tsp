@@ -82,6 +82,10 @@ namespace rpp.domain {
 
         @doc("The current status of the transfer process, indicating its state.")
         @visibility(Lifecycle.Read, Lifecycle.Query) status?: TransferStatus;
+
+        @visibility(Lifecycle.Read, Lifecycle.Query) approval?: TransferAck;
+
+        @visibility(Lifecycle.Read, Lifecycle.Query) rejection?: TransferNack;
     }
 
     @doc("Parameters specific to the deletion of a domain.")
@@ -101,7 +105,7 @@ namespace rpp.domain {
         @doc("The fully qualified name of the domain.")
         name: string;
         @doc("A container for parameters related to specific domain life-cycle processes.")
-        processes?: {
+        "_processes"?: {
             @doc("Parameters for the domain creation process.")
             creation?: DomainCreation;
             @doc("Parameters for the domain renewal process.")
