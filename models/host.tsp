@@ -1,5 +1,6 @@
 import "@typespec/json-schema";
 import "./common.tsp";
+import "./dns.tsp";
 
 using TypeSpec.JsonSchema;
 
@@ -7,6 +8,7 @@ namespace rpp.host {
 
     model HostInfoObj {
         name: string;
+        ...rpp.dns.DNS
     }
 
     model HostInfoAttr extends HostInfoObj {

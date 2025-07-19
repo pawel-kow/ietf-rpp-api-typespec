@@ -2,6 +2,7 @@ import "@typespec/json-schema";
 import "./host.tsp";
 import "./common.tsp";
 import "./examples/domain.tsp";
+import "./dns.tsp";
 
 using TypeSpec.JsonSchema;
 using rpp.domain.examples;
@@ -120,5 +121,6 @@ namespace rpp.domain {
         @doc("An array of DNSSEC data associated with the domain. This is required to sign the domain in DNS.")
         dnsSEC? : DnsSec[];
         ...rpp.common.TransferableProvisioninigObj;
+        ...rpp.dns.DNS;
     }
 }
