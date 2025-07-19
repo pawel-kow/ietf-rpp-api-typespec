@@ -31,11 +31,14 @@ namespace rpp.common {
         completed
     };
 
-    model ProvisioningObj {
+    model TransferableProvisioninigObj extends ProvisioningObj {
         authInfo: {
             pw?: string;
             hash?: string;
         };
+    }
+
+    model ProvisioningObj {
         @visibility(Lifecycle.Read, Lifecycle.Query) status?: string[];
         @visibility(Lifecycle.Read, Lifecycle.Query) crDate?: string;
         @visibility(Lifecycle.Read, Lifecycle.Query) exDate?: string;
