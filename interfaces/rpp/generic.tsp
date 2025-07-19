@@ -28,37 +28,37 @@ namespace rpp.interfaces.generic {
         //@patch op Update(...RequestHeaders, ...InputT, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
     }
 
-    interface EntityCollectionTransferrable<InputT, OutputT> {
+    interface EntityCollectionTransferrable<InputT, AckInputT, NackInoutT, OutputT> {
         // Transfer Request
         @route("/{id}/processes/transfer")
-        @put op TransferRequest(...InputT, id: string) : OutputT;
+        @post op TransferRequest(...InputT, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
 
         // Transfer Query
-        @route("/{id}/processes/transfer")
-        @get op TransferQuery(id: string) : OutputT;
+        @route("/{id}/processes/transfer/latest")
+        @get op TransferQuery(id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
 
         // Cancel
-        @route("/{id}/processes/transfer")
-        @delete op TransferCancel(id: string) : OutputT;
+        @route("/{id}/processes/transfer/latest")
+        @delete op TransferCancel(id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
 
         // Approve
-        @route("/{id}/processes/transfer/approval")
-        @put op TransferApprove(id: string) : OutputT;
+        @route("/{id}/processes/transfer/latest/approval")
+        @put op TransferApprove(id: string, ...AckInputT) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
 
         // Reject
-        @route("/{id}/processes/transfer/rejection")
-        @put op TransferReject(id: string) : OutputT;
+        @route("/{id}/processes/transfer/latest/rejection")
+        @put op TransferReject(id: string, ...AckInputT) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
     }
 
     interface EntityCollectionRenewable<InputT, OutputT> {
         // Renew Request
         @route("/{id}/processes/renewal")
-        @put op RenewalRequest(...InputT, id: string) : OutputT;
+        @put op RenewalRequest(...InputT, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
     }
 
     interface EntityCollectionDeleteable<ItemOutputT, ProcessOutputT> {
         // Delete
         @route("/{id}")
-        @delete op Delete(id: string) : ItemOutputT;
+        @delete op Delete(id: string) : {...ResponseHeaders, ...ItemOutputT} | ErrorResponse400_401_404_500;
     }
 }
