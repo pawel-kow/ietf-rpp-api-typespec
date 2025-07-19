@@ -4,13 +4,12 @@ using TypeSpec.Http;
 
 namespace rpp.headers {
     model RequestHeaders {
-        @header "RPP-cltrid"?: string;
+        @header "RPP-Cltrid"?: string;
     }
 
     model ResponseHeaders {
-        @header "RPP-cltrid"?: string;
-        @header "RPP-svtrid"?: string;
-        @header "RPP-code": string;
-        @header "RPP-code-text": string;
+        @header "RPP-Cltrid"?: string;
+        @header "RPP-Svtrid"?: string;
+        @header "RPP-Code": string;
     }
 }
