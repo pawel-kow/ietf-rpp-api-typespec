@@ -7,10 +7,10 @@ namespace rpp.contact {
     @jsonSchema
     model ContactTransfer {
         @doc("The date on which the transfer will be automatically proceeding if not approved or rejected earlier.")
-        @visibility(Lifecycle.Read, Lifecycle.Query) auto_ack_date?: utcDateTime;
+        @visibility(Lifecycle.Read, Lifecycle.Query) autoAckDate?: utcDateTime;
 
         @doc("The date on which the transfer will be automatically cancelled if not approved or rejected earlier.")
-        @visibility(Lifecycle.Read, Lifecycle.Query) auto_nack_date?: utcDateTime;
+        @visibility(Lifecycle.Read, Lifecycle.Query) autoNackDate?: utcDateTime;
 
         @doc("The current status of the transfer process, indicating its state.")
         @visibility(Lifecycle.Read, Lifecycle.Query) status?: TransferStatus;
@@ -26,8 +26,8 @@ namespace rpp.contact {
     model Contact {
         id: string;
         name?: string;
-        organisation_name?: string;
-        contact_type: ContactType;
+        organisationName?: string;
+        contactType: ContactType;
         email?: string[];
         phone?: string[];
         fax?: string[];
