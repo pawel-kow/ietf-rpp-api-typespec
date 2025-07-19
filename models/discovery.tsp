@@ -1,5 +1,6 @@
 namespace rpp.discovery {
    
+    @mediaTypeHint("application/rpp+json")
     model HelloResponse {
         svID: string;
         svDate: string;

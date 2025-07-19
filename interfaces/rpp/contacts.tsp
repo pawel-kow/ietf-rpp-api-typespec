@@ -10,6 +10,7 @@ namespace rpp {
     @useAuth(BasicAuth)
     interface contacts 
         extends EntityCollection<rpp.contact.Contact, rpp.contact.Contact>, 
-            EntityCollectionDeleteable<rpp.contact.Contact, rpp.contact.ContactDeletion> {
+            EntityCollectionDeleteable<rpp.contact.Contact, rpp.contact.ContactDeletion>,
+            EntityCollectionTransferrable<rpp.contact.ContactTransfer, rpp.common.TransferAck, rpp.common.TransferNack, rpp.contact.ContactTransfer> {
     }
 }
