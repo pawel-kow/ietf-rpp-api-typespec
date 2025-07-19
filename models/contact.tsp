@@ -38,7 +38,7 @@ namespace rpp.contact {
             postalCode?: string;
             country?: string;
         };
-        ...rpp.common.ProvisioningObj;
+        ...rpp.common.TransferableProvisioninigObj;
     }
 
     @jsonSchema

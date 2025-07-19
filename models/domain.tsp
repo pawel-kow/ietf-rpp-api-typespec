@@ -105,7 +105,7 @@ namespace rpp.domain {
         @doc("The fully qualified name of the domain.")
         name: string;
         @doc("A container for parameters related to specific domain life-cycle processes.")
-        "_processes"?: {
+        "processes"?: {
             @doc("Parameters for the domain creation process.")
             creation?: DomainCreation;
             @doc("Parameters for the domain renewal process.")
@@ -119,6 +119,6 @@ namespace rpp.domain {
         contacts?: ContactReference[];
         @doc("An array of DNSSEC data associated with the domain. This is required to sign the domain in DNS.")
         dnsSEC? : DnsSec[];
-        ...rpp.common.ProvisioningObj;
+        ...rpp.common.TransferableProvisioninigObj;
     }
 }
