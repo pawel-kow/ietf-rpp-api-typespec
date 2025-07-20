@@ -50,4 +50,9 @@ namespace rpp.common {
         @visibility(Lifecycle.Read, Lifecycle.Query) crDate?: string;
         @visibility(Lifecycle.Read, Lifecycle.Query) exDate?: string;
     }
+
+    model CheckResponse {
+        @doc("The status of the check operation, indicating whether the entity is available or not.")
+        available: boolean;
+    }
 }
