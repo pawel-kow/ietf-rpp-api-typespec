@@ -66,7 +66,15 @@ namespace rpp.dns {
 
     @doc("Operational control for DNS")
     model DnsControls {
-      ttl?: int32,
+      ttl?: {
+        a?: int32,
+        aaaa?: int32,
+        dnskey?: int32,
+        ds?: int32,
+        ns?: int32,
+        mx?: int32,
+        txt?: int32
+      },
       maximumSignatureLifetime?: int32
     }
 
