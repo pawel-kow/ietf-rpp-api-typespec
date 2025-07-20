@@ -10,8 +10,12 @@ namespace rpp.headers {
         full: "return=representation";
     }
 
-    model RequestHeaders {
+    model RequestHeadersMinimal {
+        @doc("RPP-Cltrid header is used to identify the client request. It MUST be a unique identifier for each request.")
         @header "RPP-Cltrid"?: string;
+    }
+
+    model RequestHeaders extends RequestHeadersMinimal {
         @doc("Prefer header to indicate the desired representation of the response.")
         @header "Prefer"?: PreferHeaderRepresentation = PreferHeaderRepresentation.minimal;
         @doc("RPP-Authorization header must be in the format 'AuthInfo AuthInfo=[authinfo]; Roid=[roid]' (Roid optional) or just '[method] [authinfo]'")
