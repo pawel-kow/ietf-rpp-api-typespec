@@ -14,7 +14,7 @@ namespace rpp {
     @route("/domains")
     @useAuth(BasicAuth)
     interface domains 
-        extends EntityCollection<rpp.domain.Domain, rpp.domain.Domain>, EntityCollectionTransferrable<rpp.domain.DomainTransfer, rpp.common.TransferAck, rpp.common.TransferNack, rpp.domain.DomainTransfer>,
+        extends EntityCollection<rpp.domain.Domain, rpp.domain.Domain, rpp.domain.DomainMinimal>, EntityCollectionTransferrable<rpp.domain.DomainTransfer, rpp.common.TransferAck, rpp.common.TransferNack, rpp.domain.DomainTransfer>,
             EntityCollectionRenewable<rpp.domain.DomainRenewal, rpp.domain.DomainRenewal>,
             EntityCollectionDeleteable<rpp.domain.Domain, rpp.domain.DomainDeletion> {
     }

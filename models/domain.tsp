@@ -95,6 +95,12 @@ namespace rpp.domain {
         purgeDate?: utcDateTime
     }
 
+    @doc("A minimal representation of a domain, containing only essential provisioning information.")
+    @jsonSchema
+    model DomainMinimal {
+        ...ProvisioningObjMinimal;
+    }
+
     @doc("The core model representing a domain name and its associated properties and operations, as defined in RFC 5731.")
     @jsonSchema
     @example(domainExampleHostObj, #{ title: "Host object domain registration", description: "Register a domain with two nameservers" })
