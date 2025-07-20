@@ -1,9 +1,13 @@
 import "@typespec/http";
 import "../../models/domain.tsp";
-import "./generic.tsp";
+import "../../models/common.tsp";
+import "./entitycollections/main.tsp";
+import "./entitycollections/transferrable.tsp";
+import "./entitycollections/deleteable.tsp";
+import "./entitycollections/renewable.tsp";
 
 using TypeSpec.Http;
-using rpp.interfaces.generic;
+using rpp.interfaces.generic.entitycollections;
 
 namespace rpp {
     @tag("Domains")

@@ -1,9 +1,9 @@
 import "@typespec/http";
 import "../../models/contact.tsp";
-import "./generic.tsp";
+import "./entitycollections/main.tsp";
 
 using TypeSpec.Http;
-using rpp.interfaces.generic;
+using rpp.interfaces.generic.entitycollections;
 
 namespace rpp {
     @tag("Hosts")

@@ -1,8 +1,10 @@
 import "../../models/contact.tsp";
-import "./generic.tsp";
+import "./entitycollections/main.tsp";
+import "./entitycollections/transferrable.tsp";
+import "./entitycollections/deleteable.tsp";
 
 using TypeSpec.Http;
-using rpp.interfaces.generic;
+using rpp.interfaces.generic.entitycollections;
 
 namespace rpp {
     @tag("Contacts")
