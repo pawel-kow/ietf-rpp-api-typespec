@@ -39,8 +39,8 @@ jobs:
           # Fetch all remote branches to ensure the list is up-to-date.
           git fetch --all
           # List remote branches, remove the 'origin/' prefix, filter out the 'HEAD' pointer,
-          # and format the list as a JSON array for the matrix strategy.
-          BRANCHES=$(git branch -r | grep -v 'HEAD' | sed 's/ *origin\///' | jq -R . | jq -s .)
+          # and format the list as a compact, single-line JSON array for the matrix strategy.
+          BRANCHES=$(git branch -r | grep -v 'HEAD' | sed 's/ *origin\///' | jq -R . | jq -sc .)
           echo "Found branches: $BRANCHES"
           echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
 
@@ -135,8 +135,8 @@ jobs:
           cd ./publish
           # List all subdirectories (which are the branch names), and pipe them to jq.
           # For each branch name, jq creates a JSON object with the branch name and a relative link.
-          # The -s flag collects all these objects into a single JSON array.
-          ls -d */ | sed 's#/##' | jq -R '{"name": ., "link": ("./" + . + "/openapi.yaml")}' | jq -s . > list.json
+          # The -sc flag collects all these objects into a single, compact JSON array.
+          ls -d */ | sed 's#/##' | jq -R '{"name": ., "link": ("./" + . + "/openapi.yaml")}' | jq -sc . > list.json
           cd ..
           echo "Generated list.json content:"
           cat ./publish/list.json
