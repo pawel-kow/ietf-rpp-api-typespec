@@ -18,11 +18,21 @@
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
         <header class="text-center mb-8">
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Available API Specifications 📜</h1>
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Available RPP API Specifications 📜</h1>
             <p class="text-gray-600 mt-2">Select a specification to view its documentation.</p>
         </header>
 
         <main class="space-y-8">
+            <div>
+                <h2 class="text-2xl font-semibold border-b-2 border-blue-500 pb-2 mb-4 text-gray-800">Current Editor's version (main branch)</h2>
+                <div id="main-container" class="bg-white p-6 rounded-lg shadow-md">
+                    <ul class="space-y-3">
+                        <li class="flex items-center">
+                            <a href="./swagger.html?spec=./main/openapi.yaml" class="font-medium text-blue-600 hover:text-blue-800 hover:underline">main</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
             <!-- Branches Section -->
             <div>
                 <h2 class="text-2xl font-semibold border-b-2 border-blue-500 pb-2 mb-4 text-gray-800">Branches</h2>
@@ -88,14 +98,16 @@
                     const prs = data.filter(item => item.type === 'pr');
 
                     // --- Populate Branches List ---
-                    if (branches.length > 0) {
+                    if (branches.length > 1) {
                         const ul = document.createElement('ul');
                         ul.className = 'space-y-3';
                         branches.forEach(item => {
-                            const li = document.createElement('li');
-                            li.className = 'flex items-center';
-                            li.appendChild(createSpecLink(item));
-                            ul.appendChild(li);
+                            if (item.name != "main") {
+                                const li = document.createElement('li');
+                                li.className = 'flex items-center';
+                                li.appendChild(createSpecLink(item));
+                                ul.appendChild(li);
+                            }
                         });
                         branchesContainer.appendChild(ul);
                     } else {
