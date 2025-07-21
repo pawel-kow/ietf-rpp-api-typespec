@@ -1,10 +1,74 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta http-equiv="refresh" content="0; url=swagger.html" />
-        <title>Redirecting...</title>
-    </head>
-    <body>
-        <p>If you are not redirected automatically, <a href="swagger.html">click here</a>.</p>
-    </body>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Specification Links</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 2em;
+        }
+        ul {
+            list-style-type: disc;
+        }
+        li {
+            margin-bottom: 0.5em;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Available API Specifications 📜</h1>
+    <div id="link-container">
+        <p>Loading...</p>
+    </div>
+
+    <script>
+        // Wait for the HTML document to be fully loaded before running the script.
+        document.addEventListener('DOMContentLoaded', () => {
+            // Fetch the JSON file.
+            fetch('list.json')
+                .then(response => {
+                    // Check if the request was successful.
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    // Parse the response body as JSON.
+                    return response.json();
+                })
+                .then(data => {
+                    const container = document.getElementById('link-container');
+                    // Create an unordered list to hold the links.
+                    const ul = document.createElement('ul');
+
+                    // Loop through each item in the JSON data.
+                    data.forEach(item => {
+                        // Create a list item and an anchor tag.
+                        const li = document.createElement('li');
+                        const a = document.createElement('a');
+
+                        // Set the link text to the "name" from the JSON object.
+                        a.textContent = item.name;
+                        // Construct the href attribute.
+                        a.href = `./swagger.html?spec=${item.link}`;
+
+                        // Append the anchor to the list item, and the list item to the list.
+                        li.appendChild(a);
+                        ul.appendChild(li);
+                    });
+
+                    // Clear the "Loading..." message and display the generated list.
+                    container.innerHTML = '';
+                    container.appendChild(ul);
+                })
+                .catch(error => {
+                    // Handle any errors that occurred during the fetch.
+                    console.error('Error loading the API list:', error);
+                    document.getElementById('link-container').textContent = 'Failed to load the list. See console for details.';
+                });
+        });
+    </script>
+
+</body>
 </html>
