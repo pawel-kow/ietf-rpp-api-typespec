@@ -10,11 +10,21 @@
 </head>
 <body>
     <div id="swagger-ui"></div>
+
     <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
     <script>
         window.onload = function() {
+            // Create a new URLSearchParams object from the current URL's query string.
+            const urlParams = new URLSearchParams(window.location.search);
+
+            // Get the value of the 'spec' parameter.
+            // If the parameter doesn't exist, default to 'openapi.yaml'.
+            const specUrl = urlParams.get('spec') || 'openapi.yaml';
+
+            // Initialize SwaggerUI.
             SwaggerUIBundle({
-                url: "openapi.yaml",
+                // Use the dynamically determined URL for the spec.
+                url: specUrl,
                 dom_id: "#swagger-ui",
                 presets: [
                     SwaggerUIBundle.presets.apis,
