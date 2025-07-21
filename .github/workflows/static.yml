@@ -67,11 +67,21 @@ jobs:
       matrix:
         item: ${{ fromJson(needs.list-items.outputs.items) }}
     steps:
-      - name: Checkout ${{ matrix.item.type }} '${{ matrix.item.name }}'
+      - name: Checkout branch '${{ matrix.item.name }}'
+        if: matrix.item.type == 'branch'
         uses: actions/checkout@v4
         with:
-          # Check out the specific ref for this matrix job. For PRs, this will be 'pull/123/head'.
           ref: ${{ matrix.item.ref }}
+
+      - name: Checkout repository to fetch PR
+        if: matrix.item.type == 'pr'
+        uses: actions/checkout@v4
+
+      - name: Fetch and checkout PR head
+        if: matrix.item.type == 'pr'
+        run: |
+          git fetch origin ${{ matrix.item.ref }}
+          git checkout FETCH_HEAD
 
       - name: Install TypeSpec Compiler
         run: npm install -g @typespec/compiler
