@@ -4,29 +4,67 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API Specification Links</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Custom font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            padding: 2em;
-        }
-        ul {
-            list-style-type: disc;
-        }
-        li {
-            margin-bottom: 0.5em;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
     </style>
 </head>
-<body>
+<body class="bg-gray-50 text-gray-800">
 
-    <h1>Available API Specifications 📜</h1>
-    <div id="link-container">
-        <p>Loading...</p>
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Available API Specifications 📜</h1>
+            <p class="text-gray-600 mt-2">Select a specification to view its documentation.</p>
+        </header>
+
+        <main class="space-y-8">
+            <!-- Branches Section -->
+            <div>
+                <h2 class="text-2xl font-semibold border-b-2 border-blue-500 pb-2 mb-4 text-gray-800">Branches</h2>
+                <div id="branches-container" class="bg-white p-6 rounded-lg shadow-md">
+                    <p class="text-gray-500">Loading...</p>
+                </div>
+            </div>
+
+            <!-- Pull Requests Section -->
+            <div>
+                <h2 class="text-2xl font-semibold border-b-2 border-green-500 pb-2 mb-4 text-gray-800">Pull Requests</h2>
+                <div id="prs-container" class="bg-white p-6 rounded-lg shadow-md">
+                    <p class="text-gray-500">Loading...</p>
+                </div>
+            </div>
+        </main>
     </div>
 
     <script>
         // Wait for the HTML document to be fully loaded before running the script.
         document.addEventListener('DOMContentLoaded', () => {
+            
+            // Function to create a list item for the specification
+            const createSpecLink = (item) => {
+                const a = document.createElement('a');
+                a.textContent = item.name;
+                a.href = `./swagger.html?spec=${item.link}`;
+                a.className = "font-medium text-blue-600 hover:text-blue-800 hover:underline";
+                return a;
+            };
+
+            // Function to create a link to the GitHub PR
+            const createPrLink = (prNumber) => {
+                const prLink = document.createElement('a');
+                prLink.textContent = `(PR #${prNumber})`;
+                prLink.href = `https://github.com/pawel-kow/ietf-rpp-api-typespec/pull/${prNumber}`;
+                prLink.target = "_blank"; // Open in new tab
+                prLink.rel = "noopener noreferrer";
+                prLink.className = "ml-3 text-sm text-gray-500 hover:text-gray-700 hover:underline";
+                return prLink;
+            };
+
             // Fetch the JSON file.
             fetch('list.json')
                 .then(response => {
@@ -38,34 +76,56 @@
                     return response.json();
                 })
                 .then(data => {
-                    const container = document.getElementById('link-container');
-                    // Create an unordered list to hold the links.
-                    const ul = document.createElement('ul');
+                    const branchesContainer = document.getElementById('branches-container');
+                    const prsContainer = document.getElementById('prs-container');
+                    
+                    // Clear the loading messages
+                    branchesContainer.innerHTML = '';
+                    prsContainer.innerHTML = '';
 
-                    // Loop through each item in the JSON data.
-                    data.forEach(item => {
-                        // Create a list item and an anchor tag.
-                        const li = document.createElement('li');
-                        const a = document.createElement('a');
+                    // Filter data into branches and pull requests
+                    const branches = data.filter(item => item.type === 'branch');
+                    const prs = data.filter(item => item.type === 'pr');
 
-                        // Set the link text to the "name" from the JSON object.
-                        a.textContent = item.name;
-                        // Construct the href attribute.
-                        a.href = `./swagger.html?spec=${item.link}`;
+                    // --- Populate Branches List ---
+                    if (branches.length > 0) {
+                        const ul = document.createElement('ul');
+                        ul.className = 'space-y-3';
+                        branches.forEach(item => {
+                            const li = document.createElement('li');
+                            li.className = 'flex items-center';
+                            li.appendChild(createSpecLink(item));
+                            ul.appendChild(li);
+                        });
+                        branchesContainer.appendChild(ul);
+                    } else {
+                        branchesContainer.textContent = 'No active branches found.';
+                    }
 
-                        // Append the anchor to the list item, and the list item to the list.
-                        li.appendChild(a);
-                        ul.appendChild(li);
-                    });
-
-                    // Clear the "Loading..." message and display the generated list.
-                    container.innerHTML = '';
-                    container.appendChild(ul);
+                    // --- Populate Pull Requests List ---
+                    if (prs.length > 0) {
+                        const ul = document.createElement('ul');
+                        ul.className = 'space-y-3';
+                        prs.forEach(item => {
+                            const li = document.createElement('li');
+                            li.className = 'flex items-center';
+                            li.appendChild(createSpecLink(item));
+                            if (item.pr_number) {
+                                li.appendChild(createPrLink(item.pr_number));
+                            }
+                            ul.appendChild(li);
+                        });
+                        prsContainer.appendChild(ul);
+                    } else {
+                        prsContainer.textContent = 'No open pull requests found.';
+                    }
                 })
                 .catch(error => {
                     // Handle any errors that occurred during the fetch.
                     console.error('Error loading the API list:', error);
-                    document.getElementById('link-container').textContent = 'Failed to load the list. See console for details.';
+                    const errorMessage = 'Failed to load the list. See console for details.';
+                    document.getElementById('branches-container').textContent = errorMessage;
+                    document.getElementById('prs-container').textContent = errorMessage;
                 });
         });
     </script>
