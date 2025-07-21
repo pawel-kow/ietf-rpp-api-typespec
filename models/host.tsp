@@ -8,7 +8,6 @@ namespace rpp.host {
 
     model HostInfoObj {
         name: string;
-        ...rpp.dns.DNS
     }
 
     model HostInfoAttr extends HostInfoObj {
@@ -18,13 +17,24 @@ namespace rpp.host {
         };
     }
 
+    model HostAttr {
+        ...HostInfoAttr;
+        ...rpp.dns.DNS
+    }
+
     model NSHostObj {
-        hostObj: HostInfoObj[];
+        hostObj: HostInfoObj[] | DNSHostObj[];
+    }
+
+    @doc("A host object using the DNS object")
+    model DNSHostObj {
+        name: string;
+        ...rpp.dns.DNS
     }
 
     @jsonSchema
     @mediaTypeHint("application/rpp+json")
-    model Host extends HostInfoAttr {
+    model Host extends HostAttr {
         ...rpp.common.ProvisioningObj;
     }
 }
