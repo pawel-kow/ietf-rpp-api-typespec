@@ -122,11 +122,11 @@ namespace rpp.domain {
         };
         @doc("Nameservers can be specified either as host objects or host attributes. Host objects are used for nameservers that are registered in the registry, while host attributes are used for nameservers that are not registered in the registry but are associated with the domain.")
         ns?: NS;
+        ...rpp.dns.DNS;
         @doc("An array of contacts associated with the domain, each with one or more roles.")
         contacts?: ContactReference[];
         @doc("An array of DNSSEC data associated with the domain. This is required to sign the domain in DNS.")
         dnsSEC? : DnsSec[];
         ...rpp.common.TransferableProvisioninigObj;
-        ...rpp.dns.DNS;
     }
 }
