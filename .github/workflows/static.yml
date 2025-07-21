@@ -1,7 +1,7 @@
-# This workflow generates an OpenAPI specification for each branch in the repository
-# and deploys them to GitHub Pages in separate folders.
+# This workflow generates an OpenAPI specification for each branch and open pull request
+# in the repository and deploys them to GitHub Pages in separate folders.
 
-name: Generate and Deploy All Branch OpenAPI Specs
+name: Generate and Deploy All Branch and PR OpenAPI Specs
 
 on:
   # This workflow runs automatically when a push is made to the 'main' branch.
@@ -15,6 +15,7 @@ permissions:
   contents: read    # Required to check out the repository code.
   pages: write      # Required to deploy to GitHub Pages.
   id-token: write   # Required for authentication with GitHub Pages.
+  pull-requests: read # Required to list pull requests.
 
 # Concurrency settings ensure that only one instance of this workflow runs at a time for the 'pages' group.
 # If a new workflow is triggered while one is already running, the older one will be canceled.
@@ -23,45 +24,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # JOB 1: List all branches and create a mapping of original to sanitized names.
-  # This job produces a JSON array of objects, e.g., [{"original":"feature/contacts", "sanitized":"feature-contacts"}].
-  list-branches:
+  # JOB 1: List all branches and open PRs, creating a combined list for processing.
+  # This job produces a JSON array of objects for both branches and PRs.
+  list-items:
     runs-on: ubuntu-latest
     outputs:
-      branches: ${{ steps.get-branches.outputs.branches }}
+      items: ${{ steps.get-items.outputs.items }}
     steps:
       - name: Checkout code to use Git commands
         uses: actions/checkout@v4
 
-      - name: Get all branch names and create sanitized map
-        id: get-branches
+      - name: Get all branches and open PRs and create a combined map
+        id: get-items
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Fetch all remote branches to ensure the list is up-to-date.
           git fetch --all
-          # Create a JSON array of objects, mapping original branch names to sanitized names.
-          # The 'sanitized' name has '/' replaced with '-' to be valid for artifact and directory names.
-          BRANCHES=$(git branch -r | grep -v 'HEAD' | sed 's/ *origin\///' | jq -R '{original: ., sanitized: (. | gsub("/"; "-"))}' | jq -sc .)
-          echo "Found branches map: $BRANCHES"
-          echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
 
-  # JOB 2: Generate the OpenAPI specification for each branch.
-  # This job uses a matrix strategy to run a separate, parallel job for each branch object from the previous job.
+          # Create a JSON array of objects for branches.
+          BRANCH_JSON=$(git branch -r | grep -v 'HEAD' | sed 's/ *origin\///' | jq -R '{type: "branch", name: ., sanitized: (. | gsub("/"; "-")), ref: .}' | jq -sc .)
+
+          # Create a JSON array of objects for open pull requests.
+          PR_JSON=$(gh pr list --state open --json number,title,headRef | jq '[.[] | {type: "pr", name: .title, pr_number: .number, sanitized: ("pr-" + (.number|tostring)), ref: .headRef}]')
+
+          # Combine the branch and PR JSON arrays into a single array.
+          ITEMS=$(echo "[$BRANCH_JSON, $PR_JSON]" | jq -c 'add')
+
+          echo "Found items map: $ITEMS"
+          echo "items=$ITEMS" >> $GITHUB_OUTPUT
+
+  # JOB 2: Generate the OpenAPI specification for each branch and PR.
+  # This job uses a matrix strategy to run a separate, parallel job for each item.
   generate-spec:
-    needs: list-branches
-    # This job will only run if the 'list-branches' job found at least one branch.
-    if: needs.list-branches.outputs.branches != '[]'
+    needs: list-items
+    # This job will only run if the 'list-items' job found at least one item.
+    if: needs.list-items.outputs.items != '[]'
     runs-on: ubuntu-latest
     strategy:
-      # 'fail-fast: false' ensures that if one branch build fails, the others will continue.
+      # 'fail-fast: false' ensures that if one build fails, the others will continue.
       fail-fast: false
       matrix:
-        branch: ${{ fromJson(needs.list-branches.outputs.branches) }}
+        item: ${{ fromJson(needs.list-items.outputs.items) }}
     steps:
-      - name: Checkout branch '${{ matrix.branch.original }}'
+      - name: Checkout ${{ matrix.item.type }} '${{ matrix.item.name }}'
         uses: actions/checkout@v4
         with:
-          # Check out the specific branch for this matrix job using its original name.
-          ref: ${{ matrix.branch.original }}
+          # Check out the specific ref for this matrix job.
+          ref: ${{ matrix.item.ref }}
 
       - name: Install TypeSpec Compiler
         run: npm install -g @typespec/compiler
@@ -69,27 +79,27 @@ jobs:
       - name: Install dependencies
         run: yarn install
 
-      - name: Build OpenAPI spec for '${{ matrix.branch.original }}'
+      - name: Build OpenAPI spec for '${{ matrix.item.name }}'
         run: tsp compile . --emit @typespec/openapi3
 
       - name: Prepare artifact directory
         run: |
-          # Create a directory named after the sanitized branch name.
-          mkdir -p ./${{ matrix.branch.sanitized }}
-          cp ./tsp-output/@typespec/openapi3/openapi.yaml ./${{ matrix.branch.sanitized }}/openapi.yaml
+          # Create a directory named after the sanitized item name.
+          mkdir -p ./${{ matrix.item.sanitized }}
+          cp ./tsp-output/@typespec/openapi3/openapi.yaml ./${{ matrix.item.sanitized }}/openapi.yaml
 
-      - name: Upload spec artifact for '${{ matrix.branch.original }}'
+      - name: Upload spec artifact for '${{ matrix.item.name }}'
         uses: actions/upload-artifact@v4
         with:
-          # Use the sanitized name for the artifact, as '/' is not allowed.
-          name: openapi-spec-${{ matrix.branch.sanitized }}
-          path: ./${{ matrix.branch.sanitized }}/openapi.yaml
+          # Use the sanitized name for the artifact.
+          name: openapi-spec-${{ matrix.item.sanitized }}
+          path: ./${{ matrix.item.sanitized }}/openapi.yaml
           retention-days: 1 # Artifacts are temporary and only needed for the deploy job.
 
   # JOB 3: Deploy all generated specifications to GitHub Pages.
   # This job runs after all 'generate-spec' jobs have successfully completed.
   deploy:
-    needs: [generate-spec, list-branches]
+    needs: [generate-spec, list-items]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -125,13 +135,13 @@ jobs:
           cd ./publish
           # Loop through each downloaded artifact directory (e.g., 'openapi-spec-main').
           for dir in openapi-spec-*; do
-            # Extract the sanitized branch name (e.g., 'feature-contacts') from the directory name.
-            branch_name="${dir#openapi-spec-}"
-            echo "Processing spec for branch: $branch_name"
-            # Create the final destination directory named after the sanitized branch name.
-            mkdir -p "$branch_name"
+            # Extract the sanitized name (e.g., 'feature-contacts' or 'pr-123') from the directory name.
+            sanitized_name="${dir#openapi-spec-}"
+            echo "Processing spec for: $sanitized_name"
+            # Create the final destination directory named after the sanitized name.
+            mkdir -p "$sanitized_name"
             # Move the openapi.yaml file into the new directory.
-            mv "$dir/openapi.yaml" "$branch_name/openapi.yaml"
+            mv "$dir/openapi.yaml" "$sanitized_name/openapi.yaml"
             # Remove the now-empty original artifact directory.
             rmdir "$dir"
           done
@@ -142,9 +152,9 @@ jobs:
       - name: Generate list.json
         run: |
           echo "Generating list.json..."
-          # Use the branch map from the first job to construct the JSON file.
-          # For each object in the map, create a new object with the original name and a constructed link using the sanitized name.
-          echo '${{ needs.list-branches.outputs.branches }}' | jq '[.[] | {"name": .original, "link": ("./" + .sanitized + "/openapi.yaml")}]' > ./publish/list.json
+          # Use the items map from the first job to construct the JSON file.
+          # It creates a different JSON structure depending on whether the type is "branch" or "pr".
+          echo '${{ needs.list-items.outputs.items }}' | jq '[.[] | if .type == "branch" then {type: .type, name: .name, link: ("./" + .sanitized + "/openapi.yaml")} else {type: .type, name: .name, pr_number: .pr_number, link: ("./" + .sanitized + "/openapi.yaml")} end]' > ./publish/list.json
           echo "Generated list.json content:"
           cat ./publish/list.json
 
