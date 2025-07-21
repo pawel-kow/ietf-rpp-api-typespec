@@ -20,6 +20,11 @@
             // Get the value of the 'spec' parameter.
             // If the parameter doesn't exist, default to 'openapi.yaml'.
             const specUrl = urlParams.get('spec') || 'openapi.yaml';
+            
+            // Check if the URL starts with "./" and remove it if it does.
+            if (specUrl.startsWith('./')) {
+                specUrl = specUrl.substring(2);
+            }
 
             // Initialize SwaggerUI.
             SwaggerUIBundle({
