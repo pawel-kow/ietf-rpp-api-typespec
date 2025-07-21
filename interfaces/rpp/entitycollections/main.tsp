@@ -21,7 +21,7 @@ namespace rpp.interfaces.generic.entitycollections {
 
         // Check as HEAD/GET
         @route("/{id}/availability")
-        @head op CheckFast(...RequestHeadersMinimal, id: string) : {@statusCode _: 200, ...ResponseHeaders} | ErrorResponse400_401_404_500;
+        @head op CheckFast(...RequestHeadersMinimal, id: string) : ErrorResponse200_400_401_404_500_noContent_availability;
 
         // Check as GET
         @route("/{id}/availability")
