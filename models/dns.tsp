@@ -1,10 +1,12 @@
 
 namespace rpp.dns {
 
-    @doc("DNS configuration of an object")
     model DNS {
+      @doc("DNS configuration of an object")
       dns?: {
+        @doc("An array of DNS records of various RR types")
         records: DnsRecord[];
+        @doc("Operational controls targeting DNS RR")
         controls?: DnsControls;
       }
     }
