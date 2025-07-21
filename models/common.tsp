@@ -38,13 +38,21 @@ namespace rpp.common {
         };
     }
 
-    model ProvisioningObj {
+    model ProvisioningObj extends ProvisioningObjMinimal{
         @visibility(Lifecycle.Read, Lifecycle.Query) status?: string[];
-        @visibility(Lifecycle.Read, Lifecycle.Query) crDate?: string;
-        @visibility(Lifecycle.Read, Lifecycle.Query) exDate?: string;
         @visibility(Lifecycle.Read, Lifecycle.Query) upDate?: string;
         @visibility(Lifecycle.Read, Lifecycle.Query) trDate?: string;
         @visibility(Lifecycle.Read, Lifecycle.Query) clID?: string;
         @visibility(Lifecycle.Read, Lifecycle.Query) crID?: string;
+    }
+
+    model ProvisioningObjMinimal {
+        @visibility(Lifecycle.Read, Lifecycle.Query) crDate?: string;
+        @visibility(Lifecycle.Read, Lifecycle.Query) exDate?: string;
+    }
+
+    model CheckResponse {
+        @doc("The status of the check operation, indicating whether the entity is available or not.")
+        available: boolean;
     }
 }

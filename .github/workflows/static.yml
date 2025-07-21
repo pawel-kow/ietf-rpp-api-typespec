@@ -1,51 +1,184 @@
-name: Deploy static content to Pages
+# This workflow generates an OpenAPI specification for each branch and open pull request
+# in the repository and deploys them to GitHub Pages in separate folders.
+
+name: Generate and Deploy All Branch and PR OpenAPI Specs
 
 on:
-    push:
-        branches: ["main"]
-    workflow_dispatch:
+  # This workflow runs automatically on a push to any branch.
+  push:
+    branches:
+      - '**'
+  # This workflow also runs on pull request events using pull_request_target.
+  # This is more secure as it always uses the workflow definition from the base branch (main).
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  # This also allows the workflow to be run manually from the Actions tab.
+  workflow_dispatch:
 
+# Defines the permissions required by the jobs in this workflow.
 permissions:
-    contents: read
-    pages: write
-    id-token: write
+  contents: read    # Required to check out the repository code.
+  pages: write      # Required to deploy to GitHub Pages.
+  id-token: write   # Required for authentication with GitHub Pages.
+  pull-requests: read # Required to list pull requests.
 
+# Concurrency settings ensure that only one instance of this workflow runs at a time for the 'pages' group.
+# If a new workflow is triggered while one is already running, the older one will be canceled.
 concurrency:
-    group: "pages"
-    cancel-in-progress: false
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-    deploy:
-        environment:
-            name: github-pages
-            url: ${{ steps.deployment.outputs.page_url }}
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  # JOB 1: List all branches and open PRs, creating a combined list for processing.
+  # This job produces a JSON array of objects for both branches and PRs.
+  list-items:
+    runs-on: ubuntu-latest
+    outputs:
+      items: ${{ steps.get-items.outputs.items }}
+    steps:
+      - name: Checkout code to use Git commands
+        uses: actions/checkout@v4
 
-            - name: Install TypeSpec Compiler
-              run: npm install -g @typespec/compiler
+      - name: Get all branches and open PRs and create a combined map
+        id: get-items
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Fetch all remote branches to ensure the list is up-to-date.
+          git fetch --all
 
-            - name: Install dependencies
-              run: yarn install
+          # Create a JSON array of objects for branches.
+          BRANCH_JSON=$(git branch -r | grep -v 'HEAD' | sed 's/ *origin\///' | jq -R '{type: "branch", name: ., sanitized: (. | gsub("/"; "-")), ref: .}' | jq -sc .)
 
-            - name: Build OpenAPI spec
-              run: tsp compile .
+          # Create a JSON array of objects for open pull requests, using the correct ref for checkout.
+          PR_JSON=$(gh pr list --state open --json number,title | jq '[.[] | {type: "pr", name: .title, pr_number: .number, sanitized: ("pr-" + (.number|tostring)), ref: ("pull/" + (.number|tostring) + "/head")}]')
 
-            - name: Copy OpenAPI spec to publish folder
-              run: |
-                    mkdir -p publish
-                    cp ./tsp-output/@typespec/openapi3/openapi.yaml ./publish/
+          # Combine the branch and PR JSON arrays into a single array.
+          ITEMS=$(echo "[$BRANCH_JSON, $PR_JSON]" | jq -c 'add')
 
-            - name: Setup Pages
-              uses: actions/configure-pages@v5
+          echo "Found items map: $ITEMS"
+          echo "items=$ITEMS" >> $GITHUB_OUTPUT
 
-            - name: Upload artifact
-              uses: actions/upload-pages-artifact@v3
-              with:
-                path: './publish'
+  # JOB 2: Generate the OpenAPI specification for each branch and PR.
+  # This job uses a matrix strategy to run a separate, parallel job for each item.
+  generate-spec:
+    needs: list-items
+    # This job will only run if the 'list-items' job found at least one item.
+    if: needs.list-items.outputs.items != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      # 'fail-fast: false' ensures that if one build fails, the others will continue.
+      fail-fast: false
+      matrix:
+        item: ${{ fromJson(needs.list-items.outputs.items) }}
+    steps:
+      - name: Checkout branch '${{ matrix.item.name }}'
+        if: matrix.item.type == 'branch'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.item.ref }}
 
-            - name: Deploy to GitHub Pages
-              id: deployment
-              uses: actions/deploy-pages@v4
+      - name: Checkout repository to fetch PR
+        if: matrix.item.type == 'pr'
+        uses: actions/checkout@v4
+
+      - name: Fetch and checkout PR head
+        if: matrix.item.type == 'pr'
+        run: |
+          git fetch origin ${{ matrix.item.ref }}
+          git checkout FETCH_HEAD
+
+      - name: Install TypeSpec Compiler
+        run: npm install -g @typespec/compiler
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Build OpenAPI spec for '${{ matrix.item.name }}'
+        run: tsp compile . --emit @typespec/openapi3
+
+      - name: Prepare artifact directory
+        run: |
+          # Create a directory named after the sanitized item name.
+          mkdir -p ./${{ matrix.item.sanitized }}
+          cp ./tsp-output/@typespec/openapi3/openapi.yaml ./${{ matrix.item.sanitized }}/openapi.yaml
+
+      - name: Upload spec artifact for '${{ matrix.item.name }}'
+        uses: actions/upload-artifact@v4
+        with:
+          # Use the sanitized name for the artifact.
+          name: openapi-spec-${{ matrix.item.sanitized }}
+          path: ./${{ matrix.item.sanitized }}/openapi.yaml
+          retention-days: 1 # Artifacts are temporary and only needed for the deploy job.
+
+  # JOB 3: Deploy all generated specifications to GitHub Pages.
+  # This job runs after all 'generate-spec' jobs have successfully completed.
+  deploy:
+    needs: [generate-spec, list-items]
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Create publish directory
+        run: mkdir -p ./publish
+
+      - name: Download all spec artifacts
+        uses: actions/download-artifact@v4
+        with:
+          # Download all artifacts from this workflow run into the 'publish' directory.
+          path: ./publish
+
+      - name: Checkout main branch to get its publish content
+        uses: actions/checkout@v4
+        with:
+          ref: 'main'
+          path: 'main-branch-checkout'
+
+      - name: Copy content from main branch's publish folder
+        run: |
+          # Copy all contents from the main branch's publish directory to the root of the final artifact.
+          # The || true ensures the step doesn't fail if the directory doesn't exist on main.
+          cp -r ./main-branch-checkout/publish/* ./publish/ || true
+          
+      - name: Restructure artifacts for publication
+        run: |
+          echo "Restructuring downloaded artifacts..."
+          cd ./publish
+          # Loop through each downloaded artifact directory (e.g., 'openapi-spec-main').
+          for dir in openapi-spec-*; do
+            # Extract the sanitized name (e.g., 'feature-contacts' or 'pr-123') from the directory name.
+            sanitized_name="${dir#openapi-spec-}"
+            echo "Processing spec for: $sanitized_name"
+            # Create the final destination directory named after the sanitized name.
+            mkdir -p "$sanitized_name"
+            # Move the openapi.yaml file into the new directory.
+            mv "$dir/openapi.yaml" "$sanitized_name/openapi.yaml"
+            # Remove the now-empty original artifact directory.
+            rmdir "$dir"
+          done
+          cd ..
+          echo "Final structure for deployment:"
+          ls -R ./publish
+
+      - name: Generate list.json
+        run: |
+          echo "Generating list.json..."
+          # Use the items map from the first job to construct the JSON file.
+          # It creates a different JSON structure depending on whether the type is "branch" or "pr".
+          echo '${{ needs.list-items.outputs.items }}' | jq '[.[] | if .type == "branch" then {type: .type, name: .name, link: ("./" + .sanitized + "/openapi.yaml")} else {type: .type, name: .name, pr_number: .pr_number, link: ("./" + .sanitized + "/openapi.yaml")} end]' > ./publish/list.json
+          echo "Generated list.json content:"
+          cat ./publish/list.json
+
+      - name: Upload final artifact to Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload the fully structured 'publish' directory, which now includes list.json.
+          path: './publish'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
