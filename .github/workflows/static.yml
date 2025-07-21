@@ -45,15 +45,15 @@ jobs:
           # Create a JSON array of objects for branches.
           BRANCH_JSON=$(git branch -r | grep -v 'HEAD' | sed 's/ *origin\///' | jq -R '{type: "branch", name: ., sanitized: (. | gsub("/"; "-")), ref: .}' | jq -sc .)
 
-          # Create a JSON array of objects for open pull requests.
-          PR_JSON=$(gh pr list --state open --json number,title,headRefName | jq '[.[] | {type: "pr", name: .title, pr_number: .number, sanitized: ("pr-" + (.number|tostring)), ref: .headRefName}]')
+          # Create a JSON array of objects for open pull requests, using the correct ref for checkout.
+          PR_JSON=$(gh pr list --state open --json number,title | jq '[.[] | {type: "pr", name: .title, pr_number: .number, sanitized: ("pr-" + (.number|tostring)), ref: ("pull/" + (.number|tostring) + "/head")}]')
 
           # Combine the branch and PR JSON arrays into a single array.
           ITEMS=$(echo "[$BRANCH_JSON, $PR_JSON]" | jq -c 'add')
 
           echo "Found items map: $ITEMS"
           echo "items=$ITEMS" >> $GITHUB_OUTPUT
-          
+
   # JOB 2: Generate the OpenAPI specification for each branch and PR.
   # This job uses a matrix strategy to run a separate, parallel job for each item.
   generate-spec:
@@ -70,7 +70,7 @@ jobs:
       - name: Checkout ${{ matrix.item.type }} '${{ matrix.item.name }}'
         uses: actions/checkout@v4
         with:
-          # Check out the specific ref for this matrix job.
+          # Check out the specific ref for this matrix job. For PRs, this will be 'pull/123/head'.
           ref: ${{ matrix.item.ref }}
 
       - name: Install TypeSpec Compiler
