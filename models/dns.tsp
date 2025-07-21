@@ -17,24 +17,24 @@ namespace rpp.dns {
     }
 
     @doc("RDATA for NS record, as specified in RFC 1035")
-    model RDataNS extends DnsRecord {
+    model RDataNS {
       nsdname: string
     }
 
     @doc("RDATA for A record, as specified in RFC 1035")
-    model RDataA extends DnsRecord {
+    model RDataA {
       @doc("IPv4 address")
       address: int32
     }
 
     @doc("RDATA for AAAA record, as specified in RFC 3596")
-    model RDataAAAA extends DnsRecord {
+    model RDataAAAA {
       @doc("IPv6 address")
       address: int32
     }
 
     @doc("RDATA for DS record, as specified in RFC 4034")
-    model RDataDS extends DnsRecord {
+    model RDataDS {
       @doc("The key tag value of the DS record, as specified in RFC 4034.")
       keyTag: int32,
       @doc("The algorithm used to create the DS record, as specified in RFC 4034.")
@@ -46,7 +46,7 @@ namespace rpp.dns {
     }
 
     @doc("RDATA for DNSKEY record, as specified in RFC 4034")
-    model RDataDNSKEY extends DnsRecord {
+    model RDataDNSKEY {
       flags: int32,
       protocol: int32,
       algorithm: int32,
@@ -54,13 +54,13 @@ namespace rpp.dns {
     }
 
     @doc("RDATA for MX record, as specified in RFC 1035")
-    model RDataMX extends DnsRecord {
+    model RDataMX {
       preference: string,
       exchange: string
     }
 
     @doc("RDATA for TXT record, as specified in RFC 1035")
-    model RDataTXT extends DnsRecord {
+    model RDataTXT {
       txtData: string
     }
 
