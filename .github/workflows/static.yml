@@ -107,6 +107,18 @@ jobs:
           # Download all artifacts from this workflow run into the 'publish' directory.
           path: ./publish
 
+      - name: Checkout main branch to get its publish content
+        uses: actions/checkout@v4
+        with:
+          ref: 'main'
+          path: 'main-branch-checkout'
+
+      - name: Copy content from main branch's publish folder
+        run: |
+          # Copy all contents from the main branch's publish directory to the root of the final artifact.
+          # The || true ensures the step doesn't fail if the directory doesn't exist on main.
+          cp -r ./main-branch-checkout/publish/* ./publish/ || true
+          
       - name: Restructure artifacts for publication
         run: |
           echo "Restructuring downloaded artifacts..."
