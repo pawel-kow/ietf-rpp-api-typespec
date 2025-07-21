@@ -1,51 +1,152 @@
-name: Deploy static content to Pages
+# This workflow generates an OpenAPI specification for each branch in the repository
+# and deploys them to GitHub Pages in separate folders.
+
+name: Generate and Deploy All Branch OpenAPI Specs
 
 on:
-    push:
-        branches: ["main"]
-    workflow_dispatch:
+  # This workflow runs automatically when a push is made to the 'main' branch.
+  push:
+    branches: ["main"]
+  # This also allows the workflow to be run manually from the Actions tab.
+  workflow_dispatch:
 
+# Defines the permissions required by the jobs in this workflow.
 permissions:
-    contents: read
-    pages: write
-    id-token: write
+  contents: read    # Required to check out the repository code.
+  pages: write      # Required to deploy to GitHub Pages.
+  id-token: write   # Required for authentication with GitHub Pages.
 
+# Concurrency settings ensure that only one instance of this workflow runs at a time for the 'pages' group.
+# If a new workflow is triggered while one is already running, the older one will be canceled.
 concurrency:
-    group: "pages"
-    cancel-in-progress: false
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-    deploy:
-        environment:
-            name: github-pages
-            url: ${{ steps.deployment.outputs.page_url }}
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  # JOB 1: List all branches in the repository.
+  # This job produces a JSON array of branch names that will be used by the next job.
+  list-branches:
+    runs-on: ubuntu-latest
+    outputs:
+      branches: ${{ steps.get-branches.outputs.branches }}
+    steps:
+      - name: Checkout code to use Git commands
+        uses: actions/checkout@v4
 
-            - name: Install TypeSpec Compiler
-              run: npm install -g @typespec/compiler
+      - name: Get all branch names
+        id: get-branches
+        run: |
+          # Fetch all remote branches to ensure the list is up-to-date.
+          git fetch --all
+          # List remote branches, remove the 'origin/' prefix, filter out the 'HEAD' pointer,
+          # and format the list as a JSON array for the matrix strategy.
+          BRANCHES=$(git branch -r | grep -v 'HEAD' | sed 's/ *origin\///' | jq -R . | jq -s .)
+          echo "Found branches: $BRANCHES"
+          echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
 
-            - name: Install dependencies
-              run: yarn install
+  # JOB 2: Generate the OpenAPI specification for each branch.
+  # This job uses a matrix strategy to run a separate, parallel job for each branch.
+  generate-spec:
+    needs: list-branches
+    # This job will only run if the 'list-branches' job found at least one branch.
+    if: needs.list-branches.outputs.branches != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      # 'fail-fast: false' ensures that if one branch build fails, the others will continue.
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJson(needs.list-branches.outputs.branches) }}
+    steps:
+      - name: Checkout branch '${{ matrix.branch }}'
+        uses: actions/checkout@v4
+        with:
+          # Check out the specific branch for this matrix job.
+          ref: ${{ matrix.branch }}
 
-            - name: Build OpenAPI spec
-              run: tsp compile .
+      - name: Install TypeSpec Compiler
+        run: npm install -g @typespec/compiler
 
-            - name: Copy OpenAPI spec to publish folder
-              run: |
-                    mkdir -p publish
-                    cp ./tsp-output/@typespec/openapi3/openapi.yaml ./publish/
+      - name: Install dependencies
+        run: yarn install
 
-            - name: Setup Pages
-              uses: actions/configure-pages@v5
+      - name: Build OpenAPI spec for '${{ matrix.branch }}'
+        run: tsp compile . --emit @typespec/openapi3
 
-            - name: Upload artifact
-              uses: actions/upload-pages-artifact@v3
-              with:
-                path: './publish'
+      - name: Prepare artifact directory
+        run: |
+          # Create a directory named after the branch to store the output file.
+          mkdir -p ./${{ matrix.branch }}
+          cp ./tsp-output/@typespec/openapi3/openapi.yaml ./${{ matrix.branch }}/openapi.yaml
 
-            - name: Deploy to GitHub Pages
-              id: deployment
-              uses: actions/deploy-pages@v4
+      - name: Upload spec artifact for '${{ matrix.branch }}'
+        uses: actions/upload-artifact@v4
+        with:
+          # Upload the generated spec as an artifact. Each artifact is named uniquely
+          # with its branch name to prevent collisions.
+          name: openapi-spec-${{ matrix.branch }}
+          path: ./${{ matrix.branch }}/openapi.yaml
+          retention-days: 1 # Artifacts are temporary and only needed for the deploy job.
+
+  # JOB 3: Deploy all generated specifications to GitHub Pages.
+  # This job runs after all 'generate-spec' jobs have successfully completed.
+  deploy:
+    needs: generate-spec
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Create publish directory
+        run: mkdir -p ./publish
+
+      - name: Download all spec artifacts
+        uses: actions/download-artifact@v4
+        with:
+          # Download all artifacts from this workflow run into the 'publish' directory.
+          # They will be placed in subdirectories named after the artifacts (e.g., 'publish/openapi-spec-main').
+          path: ./publish
+
+      - name: Restructure artifacts for publication
+        run: |
+          echo "Restructuring downloaded artifacts..."
+          cd ./publish
+          # Loop through each downloaded artifact directory (e.g., 'openapi-spec-main').
+          for dir in openapi-spec-*; do
+            # Extract the branch name (e.g., 'main') from the directory name.
+            branch_name="${dir#openapi-spec-}"
+            echo "Processing spec for branch: $branch_name"
+            # Create the final destination directory named after the branch.
+            mkdir -p "$branch_name"
+            # Move the openapi.yaml file into the new directory.
+            mv "$dir/openapi.yaml" "$branch_name/openapi.yaml"
+            # Remove the now-empty original artifact directory.
+            rmdir "$dir"
+          done
+          cd ..
+          echo "Final structure for deployment:"
+          ls -R ./publish
+
+      - name: Generate list.json
+        run: |
+          echo "Generating list.json..."
+          cd ./publish
+          # List all subdirectories (which are the branch names), and pipe them to jq.
+          # For each branch name, jq creates a JSON object with the branch name and a relative link.
+          # The -s flag collects all these objects into a single JSON array.
+          ls -d */ | sed 's#/##' | jq -R '{"name": ., "link": ("./" + . + "/openapi.yaml")}' | jq -s . > list.json
+          cd ..
+          echo "Generated list.json content:"
+          cat ./publish/list.json
+
+      - name: Upload final artifact to Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload the fully structured 'publish' directory, which now includes list.json.
+          path: './publish'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
