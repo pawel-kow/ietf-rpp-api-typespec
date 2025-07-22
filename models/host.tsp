@@ -6,12 +6,13 @@ using TypeSpec.JsonSchema;
 
 namespace rpp.host {
 
-    @doc("Nameserver of a domain, either a hostAttr or referencing a hostObj by name. Host objects are used for nameservers that are registered in the registry, while host attributes are used for nameservers that are not registered in the registry but are associated with the domain.")
+    @doc("Nameserver of a domain, either a EPP-style hostAttr or a reference of a hostObj by name. Host objects are used for nameservers that are registered in the registry, while host attributes are used for nameservers that are not registered in the registry but are associated with the domain.")
     model NS {
-        ns?: DomainHostAttr | DomainHostObj ;
+        ns?: DomainEPPHostAttr | DomainHostObj ;
     }
 
-    model DomainHostAttr {
+    @doc("EPP-stype hostAttr")
+    model DomainEPPHostAttr {
         hostAttr: EPPHost[]
     }
 
