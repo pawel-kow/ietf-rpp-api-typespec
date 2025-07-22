@@ -16,7 +16,7 @@ namespace rpp.host {
     }
 
     model DomainHostObj {
-        @doc("Host object can be described either EPP-style (name+addr) or DNS-style (dns:{}). Both variants must be used mutual exclusive.")
+        @doc("Host object can be described either EPP-style (rpp.host.EPPHost) or DNS-style (rpp.host.DNSHost). Both variants must be used mutual exclusive.")
         hostObj: HostName[];
     }
 
@@ -31,13 +31,13 @@ namespace rpp.host {
         };
     }
 
-    @doc("Host object can be described either EPP-style (name+addr) or DNS-style (dns:{}). Both variants must be used mutual exclusive.")
+    @doc("Host object can be described either EPP-style (rpp.host.EPPHost) or DNS-style (rpp.host.DNSHost). Both variants must be used mutual exclusive.")
     model EPPHost {
         ...HostName;
         ...HostAddress
     }
 
-    @doc("Host object can be described either EPP-style (name+addr) or DNS-style (dns:{}). Both variants must be used mutual exclusive.")
+    @doc("Host object can be described either EPP-style (rpp.host.EPPHost) or DNS-style (rpp.host.DNSHost). Both variants must be used mutual exclusive.")
     model DNSHost {
         ...HostName;
         ...rpp.dns.DNS;
@@ -45,7 +45,7 @@ namespace rpp.host {
 
     @jsonSchema
     @mediaTypeHint("application/rpp+json")
-    @doc("Host object can be described either EPP-style (name+addr) or DNS-style (dns:{}). Both variants must be used mutual exclusive.")
+    @doc("Host object can be described either EPP-style (rpp.host.EPPHost) or DNS-style (rpp.host.DNSHost). Both variants must be used mutual exclusive.")
     model Host {
         ...EPPHost;
         ...rpp.dns.DNS;
