@@ -6,35 +6,49 @@ using TypeSpec.JsonSchema;
 
 namespace rpp.host {
 
-    model HostInfoObj {
+    @doc("Nameserver of a domain, either a hostAttr or referencing a hostObj by name. Host objects are used for nameservers that are registered in the registry, while host attributes are used for nameservers that are not registered in the registry but are associated with the domain.")
+    model NS {
+        ns?: DomainHostAttr | DomainHostObj ;
+    }
+
+    model DomainHostAttr {
+        hostAttr: EPPHost[]
+    }
+
+    model DomainHostObj {
+        @doc("Host object can be described either EPP-style (name+addr) or DNS-style (dns:{}). Both variants must be used mutual exclusive.")
+        hostObj: HostName[];
+    }
+
+    model HostName {
         name: string;
     }
 
-    model HostInfoAttr extends HostInfoObj {
+    model HostAddress {
         addr?: {
             "ipv4"?: string[];
             "ipv6"?: string[];
         };
     }
 
-    model HostAttr {
-        ...HostInfoAttr;
-        ...rpp.dns.DNS
+    @doc("Host object can be described either EPP-style (name+addr) or DNS-style (dns:{}). Both variants must be used mutual exclusive.")
+    model EPPHost {
+        ...HostName;
+        ...HostAddress
     }
 
-    model NSHostObj {
-        hostObj: HostInfoObj[] | DNSHostObj[];
-    }
-
-    @doc("A host object using the DNS object")
-    model DNSHostObj {
-        name: string;
-        ...rpp.dns.DNS
+    @doc("Host object can be described either EPP-style (name+addr) or DNS-style (dns:{}). Both variants must be used mutual exclusive.")
+    model DNSHost {
+        ...HostName;
+        ...rpp.dns.DNS;
     }
 
     @jsonSchema
     @mediaTypeHint("application/rpp+json")
-    model Host extends HostAttr {
+    @doc("Host object can be described either EPP-style (name+addr) or DNS-style (dns:{}). Both variants must be used mutual exclusive.")
+    model Host {
+        ...EPPHost;
+        ...rpp.dns.DNS;
         ...rpp.common.ProvisioningObj;
     }
 }
