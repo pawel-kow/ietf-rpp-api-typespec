@@ -2,7 +2,7 @@
 namespace rpp.dns {
 
     model DNS {
-      @doc("DNS configuration of an object")
+      @doc("DNS-style configuration of an object")
       dns?: {
         @doc("An array of DNS records of various RR types")
         records: DnsRecord[];
