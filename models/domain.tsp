@@ -40,21 +40,6 @@ namespace rpp.domain {
         digest: string;
     }
 
-    @doc("Represents a nameserver defined by its attributes, for hosts not managed within the registry.")
-    model NSHostAttr {
-        @doc("An array of host attributes, including the hostname and optional IP addresses.")
-        hostAttr: rpp.host.HostInfoAttr[];
-    }
-
-    @doc("A union representing a nameserver, which can be specified either as a registered host object or by its attributes for external hosts.")
-    @TypeSpec.JsonSchema.oneOf
-    @TypeSpec.OpenAPI.oneOf
-    union NS {
-        @doc("A reference to a host object already registered in the registry.")
-        rpp.host.NSHostObj;
-        @doc("A set of host attributes for a nameserver not registered in the registry.")
-        NSHostAttr;
-    }
 
     @doc("Parameters specific to the creation of a domain.")
     model DomainCreation {
@@ -119,8 +104,7 @@ namespace rpp.domain {
             @doc("Parameters for the domain transfer process.")
             transfer?: DomainTransfer;
         };
-        @doc("Nameservers can be specified either as host objects or host attributes. Host objects are used for nameservers that are registered in the registry, while host attributes are used for nameservers that are not registered in the registry but are associated with the domain.")
-        ns?: NS;
+        ...rpp.host.NS;
         @doc("An array of contacts associated with the domain, each with one or more roles.")
         contacts?: ContactReference[];
         @doc("An array of DNSSEC data associated with the domain. This is required to sign the domain in DNS.")
