@@ -1,7 +1,8 @@
 # About
 
 RESTful Provisioning Protocol description as Typespec.
-See [main.tsp](./main.tsp)
+
+Rendering of OpenAPI from this definition is available here https://pawel-kow.github.io/ietf-rpp-api-typespec/
 
 ## Installation
 Install Typespec tool and all packages

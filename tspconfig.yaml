@@ -7,6 +7,8 @@ options:
 
   "@typespec/openapi3":
     emitter-output-dir: "{output-dir}/{emitter-name}"
+    openapi-versions:
+      - 3.0.0
 #    seal-object-schemas: true
 #    emitter-output-dir: "{project-root}/../rpp_server_python_connexion/src/"
   "@typespec/json-schema":
