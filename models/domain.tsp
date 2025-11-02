@@ -111,4 +111,35 @@ namespace rpp.domain {
         dnsSEC? : DnsSec[];
         ...rpp.common.TransferableProvisioninigObj;
     }
+
+    model UpdateModel<TAdd, TRemove, TUpdate> {
+        add?: TAdd,
+        remove?: TRemove,
+        update?: TUpdate
+    };
+
+    @jsonSchema
+    model DomainUpdateModel 
+        extends UpdateModel<DomainUpdateAdd, DomainUpdateRemove, DomainUpdateChange> 
+    {}
+
+    model DomainUpdateAdd {
+        ...rpp.host.NS;
+        @doc("An array of contacts to be added to the domain.")
+        contacts?: ContactReference[];
+        @doc("An array of DNSSEC data to be added to the domain.")
+        dnsSEC? : DnsSec[];
+    }
+
+    model DomainUpdateRemove {
+        ...rpp.host.NS;
+        @doc("An array of contacts to be removed from the domain.")
+        contacts?: ContactReference[];
+        @doc("An array of DNSSEC data to be removed from the domain.")
+        dnsSEC? : DnsSec[];
+    }
+
+    model DomainUpdateChange {
+        authInfo?: AuthInfo;
+    }
 }

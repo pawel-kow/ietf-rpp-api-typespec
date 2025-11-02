@@ -11,7 +11,7 @@ using rpp.headers;
 using rpp.errors;
 
 namespace rpp.interfaces.generic.entitycollections {
-    interface EntityCollection<InputT, OutputT, OutputTMinimal = OutputT> {
+    interface EntityCollection<InputT, OutputT, UpdateT = {}, OutputTMinimal = OutputT> {
 
         @post op Create(...RequestHeaders, ...InputT) : {...ResponseHeaders, ...OutputT} | {...ResponseHeaders, ...OutputTMinimal} | ErrorResponse400_401_409_500;
 
@@ -29,7 +29,7 @@ namespace rpp.interfaces.generic.entitycollections {
 
 
         // Update
-        //@route("/{id}")
-        //@patch op Update(...RequestHeaders, ...InputT, id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
+        @route("/{id}")
+        @patch op Update(...RequestHeaders, @bodyRoot data: UpdateT, @path id: string) : {...ResponseHeaders, ...OutputT} | ErrorResponse400_401_404_500;
     }
 }

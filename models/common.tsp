@@ -31,11 +31,12 @@ namespace rpp.common {
         completed
     };
 
+    model AuthInfo {
+        pw?: string;
+    };
+
     model TransferableProvisioninigObj extends ProvisioningObj {
-        authInfo: {
-            pw?: string;
-            hash?: string;
-        };
+        authInfo: AuthInfo
     }
 
     model ProvisioningObj extends ProvisioningObjMinimal{
