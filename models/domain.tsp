@@ -2,6 +2,7 @@ import "@typespec/json-schema";
 import "./host.tsp";
 import "./common.tsp";
 import "./examples/domain.tsp";
+import "./contact.tsp";
 
 using TypeSpec.JsonSchema;
 using rpp.domain.examples;
@@ -26,6 +27,14 @@ namespace rpp.domain {
         value: string;
         @doc("An array of roles that the contact fulfills for the domain.")
         type: ContactType[];
+    }
+
+    @doc("Represents a reference to a contact, specifying its identifier and roles.")
+    model ContactReferenceNew {
+        @doc("The unique identifier for the contact, typically a handle or ID.")
+        object: rpp.contact.ContactMinimal;
+        @doc("An array of roles that the contact fulfills for the domain.")
+        type: ContactType;
     }
 
     @doc("Represents the DNSSEC data for a domain, used to secure DNS lookups.")
@@ -126,7 +135,7 @@ namespace rpp.domain {
     model DomainUpdateAdd {
         ...rpp.host.NS;
         @doc("An array of contacts to be added to the domain.")
-        contacts?: ContactReference[];
+        contacts?: ContactReferenceNew[];
         @doc("An array of DNSSEC data to be added to the domain.")
         dnsSEC? : DnsSec[];
     }
@@ -134,7 +143,7 @@ namespace rpp.domain {
     model DomainUpdateRemove {
         ...rpp.host.NS;
         @doc("An array of contacts to be removed from the domain.")
-        contacts?: ContactReference[];
+        contacts?: ContactReferenceNew[];
         @doc("An array of DNSSEC data to be removed from the domain.")
         dnsSEC? : DnsSec[];
     }

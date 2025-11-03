@@ -23,8 +23,14 @@ namespace rpp.contact {
 
     @jsonSchema
     @mediaTypeHint("application/rpp+json")
-    model Contact {
+    //@id("file://rpp.example/models/contacts/ContactMinimal")
+    model ContactMinimal {
         id: string;
+    }
+
+    @jsonSchema
+    @mediaTypeHint("application/rpp+json")
+    model Contact extends ContactMinimal {
         name?: string;
         organisationName?: string;
         contactType: ContactType;
