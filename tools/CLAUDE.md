@@ -124,3 +124,28 @@ Things that aren't obvious from a single function in isolation:
 - **One model per file** is a hard invariant (`write_tsp` is called once per declaration). `main.tsp` is
   regenerated last, from `_written_files` (populated as a side effect of every `write_tsp` call during the
   run), specifically so its import list can never drift from what was actually written on disk.
+- **Every generated file carries its own precise `import` lines** for exactly the other generated files it
+  references — it does not rely on a consumer having imported `main.tsp` first. This means any single file
+  under `models-auto/` (e.g. `models-auto/resources/domain-name/model.tsp`) can be `tsp compile`d directly
+  and will resolve on its own, since TypeSpec imports are transitive (if A imports B and B imports C,
+  compiling A also pulls in C). `main.tsp` still exists and is still regenerated as a full manifest/one-stop
+  import for convenience, but it is no longer load-bearing for any individual file's correctness.
+  Mechanically: `resolve_data_type` (and `owning_object_full_field_defs`/`resolve_operation_input_fields`/
+  `resolve_operation_output`) take an optional `deps` set and add a `FileRegistry` key to it every time they
+  resolve a type that lives in another generated file; `write_tsp(path, body, deps=...)` turns that set into
+  sorted relative `import "...";` lines prepended to the file. `FileRegistry` (built once via
+  `build_registry(graph)` before any emission, plus external-type entries registered right after the
+  pre-scan) maps a logical key — `component:<id>`, `model:<id>`, `reference:<id>`, `op-input:<id>:<op>`,
+  `op-output:<id>:<op>`, `common:<name>`, `assoc:<name>`, `external:<spec>:<type>` — to the relative path
+  `write_tsp` will (or already did) write it to, so a dependency can be resolved to an import path even
+  before the target file exists on disk.
+  - **Pitfall already hit once:** inside the `Aggregation[X]`-family branch of `resolve_data_type`, the code
+    resolves `X`'s bare type first (adding a `model:<X>` dep) and then, for reference-semantics wrappers,
+    swaps that for a `reference:<X>` dep via `discard`+`add`. Do this swap against a **local scratch `deps`
+    set**, not the caller's shared set — the shared set accumulates dependencies from every field in the
+    whole file, so discarding directly against it can silently remove a `model:<X>` dependency that a
+    *different* field in the same file still legitimately needs (e.g. `domainName.registrant: Contact
+    Object` needs `contact/model.tsp` even though the sibling field `domainName.contacts:
+    LabelledAggregation[Contact Object]` only needs `contact/reference.tsp`). If you add a new branch that
+    resolves an inner type and then conditionally changes what it points to, follow the same
+    resolve-into-a-scratch-set-then-`deps.update()` pattern.

@@ -77,7 +77,3 @@ import "./resources/user/create/input.tsp";
 import "./resources/user/read/input.tsp";
 import "./resources/user/update/input.tsp";
 import "./resources/user/delete/input.tsp";
-
-import "@typespec/openapi3";
-import "@typespec/openapi";
-import "@typespec/http";

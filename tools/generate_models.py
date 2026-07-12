@@ -6,6 +6,7 @@ See PLAN-GENERATOR.md at the repo root for the full design/rationale.
 Re-run after the YAML changes: .venv/bin/python3 tools/generate_models.py
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -42,14 +43,42 @@ def warn_summary():
 # ---------------------------------------------------------------------------
 
 _written_files = []
+_registry = None  # set to a FileRegistry instance by main() before any write_tsp call
 
 
-def write_tsp(relative_path, body):
-    """Write one .tsp file (one model per file), tracking it for main.tsp."""
+def write_tsp(relative_path, body, deps=()):
+    """Write one .tsp file (one model per file), tracking it for main.tsp.
+
+    `deps` is an iterable of registry keys (see FileRegistry) for every other
+    generated file this one references by type. Precise `import` lines for
+    each are prepended so the file compiles standalone (given its deps are
+    reachable), without relying on a top-level main.tsp import-everything.
+    """
     full_path = OUT_DIR / relative_path
     full_path.parent.mkdir(parents=True, exist_ok=True)
-    full_path.write_text(HEADER + body.rstrip() + "\n")
+    import_lines = _import_lines_for(relative_path, deps)
+    full_path.write_text(HEADER + import_lines + body.rstrip() + "\n")
     _written_files.append(relative_path)
+
+
+def _import_lines_for(relative_path, deps):
+    own_dir = Path(relative_path).parent
+    seen_paths = set()
+    lines = []
+    for key in deps:
+        target = _registry.path_for(key)
+        if target is None or target == relative_path:
+            continue
+        if target in seen_paths:
+            continue
+        seen_paths.add(target)
+        rel = Path(os.path.relpath(target, own_dir)).as_posix()
+        if not rel.startswith("."):
+            rel = f"./{rel}"
+        lines.append(f'import "{rel}";')
+    if not lines:
+        return ""
+    return "\n".join(sorted(lines)) + "\n\n"
 
 
 # ---------------------------------------------------------------------------
@@ -247,8 +276,23 @@ ASSOCIATION_WRAPPERS = {
 }
 
 
-def resolve_data_type(raw_data_type, graph, context=""):
-    """Return a TypeSpec type expression string for a YAML data_type value."""
+def _dep_key_for_model_ref(graph, identifier):
+    """Registry key for whatever model_ref_for(identifier) actually points at."""
+    obj = graph.by_identifier.get(identifier)
+    if obj is not None and obj["_kind"] == "component":
+        return FileRegistry.component_key(identifier)
+    return FileRegistry.model_key(identifier)
+
+
+def resolve_data_type(raw_data_type, graph, context="", deps=None):
+    """Return a TypeSpec type expression string for a YAML data_type value.
+
+    If `deps` is given (a set), every generated file this resolution touches
+    is recorded into it as a FileRegistry key, so the caller's write_tsp can
+    turn it into a precise `import` line.
+    """
+    if deps is None:
+        deps = set()
     dt = raw_data_type.strip()
 
     # Association wrappers: Aggregation[X], Composition[X], etc.
@@ -257,17 +301,27 @@ def resolve_data_type(raw_data_type, graph, context=""):
     if m:
         wrapper, inner = m.group(1), m.group(2)
         ts_wrapper, targets_reference = ASSOCIATION_WRAPPERS[wrapper]
-        inner_type = resolve_data_type(inner, graph, context=f" (inside {wrapper}[...])")
+        deps.add(FileRegistry.assoc_key(wrapper))
+        # Resolve the inner type into a scratch set, not the caller's shared `deps` —
+        # when targets_reference swaps the model dep for a .reference dep below, it must
+        # only ever discard a dep this same field just added, never one contributed by an
+        # unrelated field sharing the same `deps` set (e.g. another element that legitimately
+        # references that object's full model).
+        inner_deps = set()
+        inner_type = resolve_data_type(inner, graph, context=f" (inside {wrapper}[...])", deps=inner_deps)
         if targets_reference:
             inner_obj = resolve_object_name(inner, graph, context=f" (inside {wrapper}[...])")
             if inner_obj is not None and inner_obj["_kind"] in ("process", "resource"):
                 inner_type = f"{graph.namespace_for(inner_obj['identifier'])}.reference"
+                inner_deps.discard(_dep_key_for_model_ref(graph, inner_obj["identifier"]))
+                inner_deps.add(FileRegistry.reference_key(inner_obj["identifier"]))
+        deps.update(inner_deps)
         return f"{ts_wrapper}<{inner_type}>"
 
     # Dictionary[X]
     m = re.match(r"^Dictionary\[(.+)\]$", dt)
     if m:
-        inner_type = resolve_data_type(m.group(1), graph, context=" (inside Dictionary[...])")
+        inner_type = resolve_data_type(m.group(1), graph, context=" (inside Dictionary[...])", deps=deps)
         return f"Record<{inner_type}>"
 
     # External:<spec>:<type>
@@ -275,6 +329,7 @@ def resolve_data_type(raw_data_type, graph, context=""):
     if m:
         spec, type_name = m.group(1), m.group(2)
         ident = external_type_name(spec, type_name)
+        deps.add(FileRegistry.external_key(spec, type_name))
         return f"rpp.gen.external.{ident}"
 
     # "<Name> Reference" — must check before generic name resolution
@@ -287,12 +342,14 @@ def resolve_data_type(raw_data_type, graph, context=""):
         )
         target = resolve_object_name(base_name, graph, context=context)
         if target is not None and target["_kind"] in ("process", "resource"):
+            deps.add(FileRegistry.reference_key(target["identifier"]))
             return f"{graph.namespace_for(target['identifier'])}.reference"
         if target is not None:
             warn(
                 f'data_type "{dt}"{context} resolved to component "{target["identifier"]}" '
                 f'which has no .reference model — using its plain model instead'
             )
+            deps.add(_dep_key_for_model_ref(graph, target["identifier"]))
             return graph.model_ref_for(target["identifier"])
         warn(f'unresolved "Reference" data_type "{dt}"{context}')
         return "unknown"
@@ -301,12 +358,15 @@ def resolve_data_type(raw_data_type, graph, context=""):
     if strip_trailing_dot(dt) == "Identifier":
         if dt.endswith("."):
             warn(f'data_type "{dt}"{context} has a trailing-dot typo — stripped to "Identifier"')
+        deps.add(FileRegistry.common_key("Identifier"))
         return "rpp.gen.common.Identifier"
 
     if dt == "Client Identifier":
+        deps.add(FileRegistry.common_key("ClientIdentifier"))
         return "rpp.gen.common.ClientIdentifier"
 
     if dt == "Phone Number":
+        deps.add(FileRegistry.common_key("PhoneNumber"))
         return "rpp.gen.common.PhoneNumber"
 
     if dt == "Object":
@@ -318,6 +378,7 @@ def resolve_data_type(raw_data_type, graph, context=""):
     # Plain object-name reference: "<Name> Object", "<Name> Data Object", or a bare object name
     obj = resolve_object_name(dt, graph, context=context)
     if obj is not None:
+        deps.add(_dep_key_for_model_ref(graph, obj["identifier"]))
         return graph.model_ref_for(obj["identifier"])
 
     warn(f'unresolved data_type "{dt}"{context} — emitting `unknown`')
@@ -335,13 +396,15 @@ def data_type_comment(raw_data_type, resolved):
 # ---------------------------------------------------------------------------
 
 
-def emit_field(identifier, cardinality, data_type, mutability, graph, context=""):
+def emit_field(identifier, cardinality, data_type, mutability, graph, context="", deps=None):
     """Return one field declaration (plus optional TODO comment line), unindented.
 
     Callers splice this into a model body via `indent_block`, which applies the
-    indent appropriate to that body's nesting depth.
+    indent appropriate to that body's nesting depth. Any generated file the
+    field's type touches is recorded into `deps` (a set of FileRegistry keys),
+    if given.
     """
-    ts_type = resolve_data_type(data_type, graph, context=context)
+    ts_type = resolve_data_type(data_type, graph, context=context, deps=deps)
     type_expr, optional = field_type_and_optional(cardinality, ts_type)
     vis = visibility_decorator(mutability) if mutability is not None else ""
     opt_marker = "?" if optional else ""
@@ -362,10 +425,12 @@ def indent_block(text, level):
 
 def emit_component(obj, graph):
     identifier = obj["identifier"]
+    deps = set()
     fields = "".join(
         emit_field(
             el["identifier"], el["cardinality"], el["data_type"], el["mutability"], graph,
             context=f' (element "{el["identifier"]}" of component "{identifier}")',
+            deps=deps,
         )
         for el in obj["elements"]
     )
@@ -376,7 +441,7 @@ def emit_component(obj, graph):
         f"  }}\n"
         f"}}\n"
     )
-    write_tsp(f"components/{kebab(identifier)}.tsp", body)
+    write_tsp(f"components/{kebab(identifier)}.tsp", body, deps=deps)
 
 
 # ---------------------------------------------------------------------------
@@ -411,8 +476,9 @@ def emit_reference(obj, graph):
         return
 
     el = elements_by_id[field_name]
+    deps = set()
     ts_type = resolve_data_type(
-        el["data_type"], graph, context=f' (unique-id "{field_name}" of "{identifier}")'
+        el["data_type"], graph, context=f' (unique-id "{field_name}" of "{identifier}")', deps=deps
     )
 
     body = (
@@ -424,11 +490,104 @@ def emit_reference(obj, graph):
         f"  }}\n"
         f"}}\n"
     )
-    write_tsp(f"{_folder_for(obj)}/{kebab(identifier)}/reference.tsp", body)
+    write_tsp(f"{_folder_for(obj)}/{kebab(identifier)}/reference.tsp", body, deps=deps)
 
 
 def _folder_for(obj):
     return "processes" if obj["_kind"] == "process" else "resources"
+
+
+# ---------------------------------------------------------------------------
+# File registry: logical symbol -> relative output path, for import resolution
+# ---------------------------------------------------------------------------
+
+
+class FileRegistry:
+    """Maps a logical symbol key (as recorded by resolve_data_type et al. into a
+    file's `deps` set) to the relative .tsp path that defines it, so `write_tsp`
+    can turn a dependency into a precise relative `import` line.
+
+    Populated once, up front, from the object graph — every path is a pure
+    function of identifiers the generator already knows, so this doesn't need
+    to wait until the corresponding file is actually emitted.
+    """
+
+    def __init__(self):
+        self._paths = {}
+
+    def register(self, key, relative_path):
+        self._paths[key] = relative_path
+
+    def path_for(self, key):
+        return self._paths.get(key)
+
+    @staticmethod
+    def component_key(identifier):
+        return ("component", identifier)
+
+    @staticmethod
+    def model_key(identifier):
+        return ("model", identifier)
+
+    @staticmethod
+    def reference_key(identifier):
+        return ("reference", identifier)
+
+    @staticmethod
+    def operation_input_key(obj_identifier, op_identifier):
+        return ("op-input", obj_identifier, op_identifier)
+
+    @staticmethod
+    def operation_output_key(obj_identifier, op_identifier):
+        return ("op-output", obj_identifier, op_identifier)
+
+    @staticmethod
+    def common_key(name):
+        return ("common", name)
+
+    @staticmethod
+    def assoc_key(name):
+        return ("assoc", name)
+
+    @staticmethod
+    def external_key(spec, type_name):
+        return ("external", spec, type_name)
+
+
+def build_registry(graph):
+    """Pre-compute every generated file's path, keyed by logical symbol, before
+    any file content is generated. Every path here MUST match the path the
+    corresponding emit_* function actually passes to write_tsp."""
+    registry = FileRegistry()
+
+    registry.register(FileRegistry.common_key("Identifier"), "common/identifier.tsp")
+    registry.register(FileRegistry.common_key("ClientIdentifier"), "common/client-identifier.tsp")
+    registry.register(FileRegistry.common_key("PhoneNumber"), "common/phone-number.tsp")
+
+    for name in ASSOCIATION_WRAPPERS:
+        registry.register(FileRegistry.assoc_key(name), f"associations/{kebab(name)}.tsp")
+
+    for obj in graph.components:
+        identifier = obj["identifier"]
+        registry.register(FileRegistry.component_key(identifier), f"components/{kebab(identifier)}.tsp")
+
+    for obj in graph.processes + graph.resources:
+        identifier = obj["identifier"]
+        folder = _folder_for(obj)
+        base = f"{folder}/{kebab(identifier)}"
+        registry.register(FileRegistry.model_key(identifier), f"{base}/model.tsp")
+        registry.register(FileRegistry.reference_key(identifier), f"{base}/reference.tsp")
+        for op in obj.get("operations", []):
+            op_id = op["identifier"]
+            op_base = f"{base}/{kebab(op_id)}"
+            registry.register(
+                FileRegistry.operation_input_key(identifier, op_id), f"{op_base}/input.tsp"
+            )
+            registry.register(
+                FileRegistry.operation_output_key(identifier, op_id), f"{op_base}/output.tsp"
+            )
+
+    return registry
 
 
 # ---------------------------------------------------------------------------
@@ -439,10 +598,12 @@ def _folder_for(obj):
 
 def emit_object_model(obj, graph):
     identifier = obj["identifier"]
+    deps = set()
     fields = "".join(
         emit_field(
             el["identifier"], el["cardinality"], el["data_type"], el["mutability"], graph,
             context=f' (element "{el["identifier"]}" of "{identifier}")',
+            deps=deps,
         )
         for el in obj["elements"]
     )
@@ -455,7 +616,7 @@ def emit_object_model(obj, graph):
         f"  }}\n"
         f"}}\n"
     )
-    write_tsp(f"{_folder_for(obj)}/{kebab(identifier)}/model.tsp", body)
+    write_tsp(f"{_folder_for(obj)}/{kebab(identifier)}/model.tsp", body, deps=deps)
 
 
 # ---------------------------------------------------------------------------
@@ -465,7 +626,7 @@ def emit_object_model(obj, graph):
 CREATE_LIKE_OPS = {"create", "renewCreate", "transferCreate"}
 
 
-def owning_object_full_field_defs(obj, graph, only_mutabilities, exclude_identifiers=frozenset()):
+def owning_object_full_field_defs(obj, graph, only_mutabilities, exclude_identifiers=frozenset(), deps=None):
     """Emit fields for the elements of obj matching the given mutabilities."""
     parts = []
     for el in obj["elements"]:
@@ -475,12 +636,13 @@ def owning_object_full_field_defs(obj, graph, only_mutabilities, exclude_identif
                     el["identifier"], el["cardinality"], el["data_type"], el["mutability"], graph,
                     context=f' (element "{el["identifier"]}" of "{obj["identifier"]}", '
                             f'operation-default input)',
+                    deps=deps,
                 )
             )
     return "".join(parts)
 
 
-def params_field_defs(op, graph, obj_identifier, op_identifier):
+def params_field_defs(op, graph, obj_identifier, op_identifier, deps=None):
     parts = []
     for p in op.get("params", []):
         parts.append(
@@ -488,14 +650,19 @@ def params_field_defs(op, graph, obj_identifier, op_identifier):
                 p["identifier"], p["cardinality"], p["data_type"], None, graph,
                 context=f' (transient param "{p["identifier"]}" of '
                         f'"{obj_identifier}.{op_identifier}")',
+                deps=deps,
             )
         )
     return "".join(parts)
 
 
-def resolve_operation_input_fields(obj, op, graph):
+def resolve_operation_input_fields(obj, op, graph, deps):
     """Return the field-block string (without params) for the operation's input,
-    applying §2.6.2 defaults / magic-value parsing per the plan's table."""
+    applying §2.6.2 defaults / magic-value parsing per the plan's table.
+
+    Every generated file referenced (via .reference spreads, bare-model
+    spreads, etc.) is recorded into `deps` as a FileRegistry key.
+    """
     raw_input = op.get("input", "") or ""
     op_id = op["identifier"]
     obj_id = obj["identifier"]
@@ -503,12 +670,14 @@ def resolve_operation_input_fields(obj, op, graph):
     if raw_input == "":
         if op_id in CREATE_LIKE_OPS:
             warn(f'applied Create default for empty input on "{obj_id}.{op_id}"')
-            return owning_object_full_field_defs(obj, graph, {"create-only", "read-write"})
+            return owning_object_full_field_defs(obj, graph, {"create-only", "read-write"}, deps=deps)
         if op_id == "read":
             warn(f'applied Read default for empty input on "{obj_id}.{op_id}" — reusing .reference')
+            deps.add(FileRegistry.reference_key(obj_id))
             return f"...{graph.namespace_for(obj_id)}.reference;\n"
         if op_id == "update":
             warn(f'applied Update default for empty input on "{obj_id}.{op_id}"')
+            deps.add(FileRegistry.reference_key(obj_id))
             id_field = f"...{graph.namespace_for(obj_id)}.reference;\n"
             unique_id_field = UNIQUE_ID_TABLE.get(obj_id)
             elements_by_id = {el["identifier"]: el for el in obj["elements"]}
@@ -525,9 +694,11 @@ def resolve_operation_input_fields(obj, op, graph):
             return id_field + owning_object_full_field_defs(
                 obj, graph, {"read-write"},
                 exclude_identifiers={unique_id_field} if collides else frozenset(),
+                deps=deps,
             )
         if op_id == "delete":
             warn(f'applied Delete default for empty input on "{obj_id}.{op_id}" — reusing .reference')
+            deps.add(FileRegistry.reference_key(obj_id))
             return f"...{graph.namespace_for(obj_id)}.reference;\n"
         warn(
             f'empty input string on "{obj_id}.{op_id}" (identifier not in the known '
@@ -544,12 +715,14 @@ def resolve_operation_input_fields(obj, op, graph):
     if m:
         warn(f'input "{raw_input}" on "{obj_id}.{op_id}" — modelled as .reference plus extra spread')
         extra = m.group(1)
+        deps.add(FileRegistry.reference_key(obj_id))
         result = f"...{graph.namespace_for(obj_id)}.reference;\n"
         if extra:
             extra_obj = resolve_object_name(
                 extra, graph, context=f' (input of "{obj_id}.{op_id}")'
             )
             if extra_obj is not None:
+                deps.add(_dep_key_for_model_ref(graph, extra_obj["identifier"]))
                 result += f"...{graph.model_ref_for(extra_obj['identifier'])};\n"
             else:
                 warn(f'unresolved extra input object "{extra}" on "{obj_id}.{op_id}"')
@@ -566,7 +739,9 @@ def resolve_operation_input_fields(obj, op, graph):
         )
         target = resolve_object_name(target_name, graph, context=f' (input of "{obj_id}.{op_id}")')
         if target is not None:
-            return owning_object_full_field_defs(target, graph, {"create-only", "read-write"})
+            return owning_object_full_field_defs(
+                target, graph, {"create-only", "read-write"}, deps=deps
+            )
         warn(f'unresolved input target "{target_name}" on "{obj_id}.{op_id}"')
         return f'// TODO: unparsed input/output string "{raw_input}"\n'
 
@@ -574,16 +749,18 @@ def resolve_operation_input_fields(obj, op, graph):
     target = resolve_object_name(raw_input.strip(), graph, context=f' (input of "{obj_id}.{op_id}")')
     if target is not None:
         warn(f'input "{raw_input}" on "{obj_id}.{op_id}" — resolved via name resolution')
+        deps.add(_dep_key_for_model_ref(graph, target["identifier"]))
         return f"...{graph.model_ref_for(target['identifier'])};\n"
 
     warn(f'unparsed input string "{raw_input}" on "{obj_id}.{op_id}"')
     return f'// TODO: unparsed input/output string "{raw_input}"\n'
 
 
-def resolve_operation_output(obj, op, graph):
+def resolve_operation_output(obj, op, graph, deps):
     """Return (is_distinct, type_expr_or_None, field_block_or_None).
 
     is_distinct False means: reuse the bare object model directly (no output.tsp).
+    Any generated file referenced is recorded into `deps` as a FileRegistry key.
     """
     raw_output = op.get("output", "") or ""
     op_id = op["identifier"]
@@ -606,9 +783,12 @@ def resolve_operation_output(obj, op, graph):
             f"(TODO: confirm void/no-body convention)"
         )
         target = resolve_object_name(target_name, graph, context=f' (output of "{obj_id}.{op_id}")')
-        type_ref = graph.model_ref_for(target["identifier"]) if target is not None else "unknown"
-        if target is None:
+        if target is not None:
+            deps.add(_dep_key_for_model_ref(graph, target["identifier"]))
+            type_ref = graph.model_ref_for(target["identifier"])
+        else:
             warn(f'unresolved output target "{target_name}" on "{obj_id}.{op_id}"')
+            type_ref = "unknown"
         return True, f"{type_ref} | void", None
 
     # "<Name> Object (create-only and read-write elements)" — unlikely for output but handle
@@ -618,6 +798,7 @@ def resolve_operation_output(obj, op, graph):
             warn(f'output "{raw_output}" on "{obj_id}.{op_id}" — resolves to the bare object model, collapsing')
             return False, None, None
         warn(f'output "{raw_output}" on "{obj_id}.{op_id}" — resolved via name resolution to a distinct type')
+        deps.add(_dep_key_for_model_ref(graph, target["identifier"]))
         return True, graph.model_ref_for(target["identifier"]), None
 
     warn(f'unparsed output string "{raw_output}" on "{obj_id}.{op_id}"')
@@ -630,8 +811,9 @@ def emit_operation(obj, op, graph):
     folder = _folder_for(obj)
     base_path = f"{folder}/{kebab(obj_id)}/{kebab(op_id)}"
 
-    input_fields = resolve_operation_input_fields(obj, op, graph)
-    param_fields = params_field_defs(op, graph, obj_id, op_id)
+    input_deps = set()
+    input_fields = resolve_operation_input_fields(obj, op, graph, deps=input_deps)
+    param_fields = params_field_defs(op, graph, obj_id, op_id, deps=input_deps)
 
     input_body = (
         f"namespace rpp.gen {{\n"
@@ -644,9 +826,10 @@ def emit_operation(obj, op, graph):
         f"  }}\n"
         f"}}\n"
     )
-    write_tsp(f"{base_path}/input.tsp", input_body)
+    write_tsp(f"{base_path}/input.tsp", input_body, deps=input_deps)
 
-    is_distinct, type_expr, field_block = resolve_operation_output(obj, op, graph)
+    output_deps = set()
+    is_distinct, type_expr, field_block = resolve_operation_output(obj, op, graph, deps=output_deps)
     if is_distinct:
         if field_block is not None:
             output_body = (
@@ -670,7 +853,7 @@ def emit_operation(obj, op, graph):
                 f"  }}\n"
                 f"}}\n"
             )
-        write_tsp(f"{base_path}/output.tsp", output_body)
+        write_tsp(f"{base_path}/output.tsp", output_body, deps=output_deps)
 
 
 # ---------------------------------------------------------------------------
@@ -722,7 +905,7 @@ def emit_associations():
 
 def emit_external_placeholders():
     for (spec, type_name), ident in _external_types_seen.items():
-        file_slug = kebab(spec.replace("-", "")) if False else spec.lower().replace("_", "-")
+        file_slug = spec.lower().replace("_", "-")
         write_tsp(
             f"external/{file_slug}-{type_name.lower()}.tsp",
             f"namespace rpp.gen.external {{\n"
@@ -755,6 +938,8 @@ def emit_test_entrypoint():
 
 
 def main():
+    global _registry
+
     doc = yaml.safe_load(SPEC_YAML.read_text())
     graph = ObjectGraph(doc)
 
@@ -771,6 +956,14 @@ def main():
         for op in obj.get("operations", []):
             for p in op.get("params", []):
                 prescan_data_type(p["data_type"])
+
+    _registry = build_registry(graph)
+    for (spec, type_name), ident in _external_types_seen.items():
+        file_slug = spec.lower().replace("_", "-")
+        _registry.register(
+            FileRegistry.external_key(spec, type_name),
+            f"external/{file_slug}-{type_name.lower()}.tsp",
+        )
 
     emit_common_scalars()
     emit_associations()
