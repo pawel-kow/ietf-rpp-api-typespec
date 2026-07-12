@@ -10,3 +10,6 @@ node_modules/
 
 __pycache__/
 .venv
+
+# Personal/machine-local Claude Code settings
+.claude/settings.local.json
