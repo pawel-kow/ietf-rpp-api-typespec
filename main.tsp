@@ -7,6 +7,7 @@ import "./interfaces/rpp/contacts.tsp";
 import "./interfaces/rpp/hosts.tsp";
 import "./interfaces/rpp/messages.tsp";
 import "./interfaces/rpp/discovery.tsp";
+import "./models/external/jscontact.tsp";
 
 using TypeSpec.Http;
 using TypeSpec.OpenAPI;

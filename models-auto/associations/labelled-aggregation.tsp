@@ -3,6 +3,6 @@
 namespace rpp.gen {
   model LabelledAggregation<T> {
     label: string;
-    item: T;
+    object: T;
   }
 }

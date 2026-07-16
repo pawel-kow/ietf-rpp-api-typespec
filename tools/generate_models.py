@@ -53,8 +53,24 @@ def write_tsp(relative_path, body, deps=()):
     generated file this one references by type. Precise `import` lines for
     each are prepended so the file compiles standalone (given its deps are
     reachable), without relying on a top-level main.tsp import-everything.
+
+    If a file already exists at this path and does not carry the
+    AUTO-GENERATED header, it's assumed to be hand-edited: the write is
+    skipped and a warning is printed, but the path is still tracked exactly
+    as if it had been (over)written, so every other generated file's
+    `import` line and `main.tsp` itself stay correct — the on-disk file is
+    left alone, but treated as present and reachable at its registered path.
     """
     full_path = OUT_DIR / relative_path
+    if full_path.exists():
+        existing = full_path.read_text()
+        if not existing.startswith("// AUTO-GENERATED"):
+            warn(
+                f'"{relative_path}" exists but has no AUTO-GENERATED header — '
+                f"assuming hand-edited and skipping write (path still tracked)"
+            )
+            _written_files.append(relative_path)
+            return
     full_path.parent.mkdir(parents=True, exist_ok=True)
     import_lines = _import_lines_for(relative_path, deps)
     full_path.write_text(HEADER + import_lines + body.rstrip() + "\n")
@@ -887,7 +903,7 @@ def emit_associations():
     )
     write_tsp(
         "associations/labelled-aggregation.tsp",
-        "namespace rpp.gen {\n  model LabelledAggregation<T> {\n    label: string;\n    item: T;\n  }\n}\n",
+        "namespace rpp.gen {\n  model LabelledAggregation<T> {\n    label: string;\n    object: T;\n  }\n}\n",
     )
     write_tsp(
         "associations/dictionary-aggregation.tsp",
@@ -895,7 +911,7 @@ def emit_associations():
     )
     write_tsp(
         "associations/labelled-composition.tsp",
-        "namespace rpp.gen {\n  model LabelledComposition<T> {\n    label: string;\n    item: T;\n  }\n}\n",
+        "namespace rpp.gen {\n  model LabelledComposition<T> {\n    label: string;\n    object: T;\n  }\n}\n",
     )
     write_tsp(
         "associations/dictionary-composition.tsp",

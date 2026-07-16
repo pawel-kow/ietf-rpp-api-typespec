@@ -3,6 +3,6 @@
 namespace rpp.gen {
   model LabelledComposition<T> {
     label: string;
-    item: T;
+    object: T;
   }
 }
